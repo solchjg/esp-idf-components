@@ -12,7 +12,7 @@
 #define TDISPLAY_S3_AMOLED_LCD_RST 17
 #define TDISPLAY_S3_AMOLED_LCD_TE 9      // tearing-effect output, unused
 #define TDISPLAY_S3_AMOLED_LCD_PWR 38    // panel power enable on the touch board, LED on the other
-#define TDISPLAY_S3_AMOLED_LCD_PCLK_HZ 40000000  // QSPI clock
+#define TDISPLAY_S3_AMOLED_LCD_PCLK_HZ 75000000  // QSPI clock (the SPI divider rounds it to 80 MHz)
 
 // RM67162 MADCTL for landscape with the USB port on the right: MX | MV.
 #define TDISPLAY_S3_AMOLED_LCD_MADCTL 0x60
