@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "GET / and GET /api/status on an esp_http_server other routes can join"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"

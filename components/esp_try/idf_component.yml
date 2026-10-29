@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "ESP_TRY: return an esp_err_t to the caller instead of aborting"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"

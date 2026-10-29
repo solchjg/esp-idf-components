@@ -1,4 +1,7 @@
-# FSD §17: mDNS is not bundled with ESP-IDF 6; exact version pinned (Method).
+version: "0.1.0"
+description: "Answer <hostname>.local with the station address"
+url: https://github.com/solchjg/esp-idf-components
+# mDNS is not bundled with ESP-IDF 6; exact version pinned.
 dependencies:
   idf: ">=6.0.0"
   espressif/mdns: "==1.14.0"

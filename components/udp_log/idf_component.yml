@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "Mirror the lines of one log tag to the station's gateway over UDP"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
