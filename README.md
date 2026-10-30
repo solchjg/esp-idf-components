@@ -19,6 +19,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | `button` | long-press (5 s) detector on an active-low GPIO | `BUTTON_GPIO` (0) | — |
 | `deep_sleep` | deep sleep for a period, app prepare callbacks before it, the wake cause after | `DEEP_SLEEP_MIN_S` (1), `DEEP_SLEEP_MAX_S` (86400), `DEEP_SLEEP_WAKE_GPIO` (-1: timer only), `DEEP_SLEEP_WAKE_PULLUP` (y) | `esp_try` |
 | `time_sync` | time zone and SNTP while a network is up; synced state survives deep sleep | `TIME_SYNC_SERVER` ("pool.ntp.org"), `TIME_SYNC_TZ` ("UTC0") | — |
+| `bme280` | BME280 temperature, humidity and pressure on I2C, one forced reading per call, configured by `bme280_config_t` | — | `esp_try` |
 | `st7789` | ST7789 panel on an 8-bit i80 bus, configured by `st7789_config_t` | — | `esp_try` |
 | `rm67162` | RM67162 AMOLED panel on a QSPI bus, configured by `rm67162_config_t`; same API shape as `st7789` | — | `esp_try` |
 | `text` | 16 × 32 bitmap font renderer, pure C | — | — |
