@@ -14,6 +14,11 @@
 #define TDISPLAY_S3_AMOLED_LCD_PWR 38    // panel power enable on the touch board, LED on the other
 #define TDISPLAY_S3_AMOLED_LCD_PCLK_HZ 75000000  // QSPI clock (the SPI divider rounds it to 80 MHz)
 
+// Keys, active low: BOOT on GPIO 0 (a strapping pin) and the user key, an RTC
+// GPIO, so it can wake the chip from deep sleep (LilyGO factory pins_config.h).
+#define TDISPLAY_S3_AMOLED_KEY_BOOT 0
+#define TDISPLAY_S3_AMOLED_KEY 21
+
 // RM67162 MADCTL for landscape with the USB port on the right: MX | MV.
 #define TDISPLAY_S3_AMOLED_LCD_MADCTL 0x60
 

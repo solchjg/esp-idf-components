@@ -19,7 +19,9 @@
 #define REG(cmd) ((0x02 << 24) | ((cmd) << 8))
 #define PIXELS ((0x32 << 24) | (0x2C << 8))
 
+#define SLPIN 0x10
 #define SLPOUT 0x11
+#define DISPOFF 0x28
 #define DISPON 0x29
 #define CASET 0x2A
 #define RASET 0x2B
@@ -33,6 +35,7 @@ static SemaphoreHandle_t done;
 static uint16_t *canvas;
 static size_t canvas_pixels;
 static int gap_x, gap_y;
+static int power_gpio = -1;
 
 static bool on_trans_done(esp_lcd_panel_io_handle_t h, esp_lcd_panel_io_event_data_t *ev,
                           void *ctx)
@@ -50,6 +53,7 @@ static void out_pin(int pin, int level)
     gpio_config_t c = {.pin_bit_mask = 1ULL << pin, .mode = GPIO_MODE_OUTPUT};
     gpio_config(&c);
     gpio_set_level(pin, level);
+    gpio_hold_dis(pin);  // rm67162_sleep may have held it low through a deep sleep
 }
 
 static esp_err_t reg(uint8_t cmd, const uint8_t *param, size_t len)
@@ -125,8 +129,25 @@ esp_err_t rm67162_brightness(uint8_t level)
     return reg1(WRDISBV, level);
 }
 
+esp_err_t rm67162_sleep(void)
+{
+    if (io == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    ESP_TRY(reg1(WRDISBV, 0x00));
+    ESP_TRY(reg(DISPOFF, NULL, 0));
+    ESP_TRY(reg(SLPIN, NULL, 0));
+    vTaskDelay(pdMS_TO_TICKS(120));  // sleep-in sequence before power is removed
+    if (power_gpio < 0) {
+        return ESP_OK;
+    }
+    out_pin(power_gpio, 0);
+    return gpio_hold_en(power_gpio);
+}
+
 esp_err_t rm67162_start(const rm67162_config_t *cfg)
 {
+    power_gpio = cfg->power_gpio;
     out_pin(cfg->power_gpio, 1);
     out_pin(cfg->rst_gpio, 1);
     vTaskDelay(pdMS_TO_TICKS(20));

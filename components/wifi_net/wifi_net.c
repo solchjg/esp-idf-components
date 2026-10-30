@@ -146,6 +146,11 @@ void wifi_net_sta_stop(void)
     esp_wifi_disconnect();
 }
 
+esp_err_t wifi_net_stop(void)
+{
+    return esp_wifi_stop();  // a connected station leaves the AP first
+}
+
 void wifi_net_gateway(char out[16])
 {
     esp_netif_ip_info_t info = {0};

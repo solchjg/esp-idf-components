@@ -1,5 +1,6 @@
 // Build check only: links every component's public API into one image.
 #include "button.h"
+#include "deep_sleep.h"
 #include "esp_try.h"
 #include "identity.h"
 #include "mdns_name.h"
