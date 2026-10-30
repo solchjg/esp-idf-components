@@ -21,5 +21,11 @@ typedef enum {
 // `password` (any order, '+' and %XX decoded) and validate them (FR-13.4).
 pc_result_t pc_parse_form(const char *body, size_t len, pc_creds_t *out);
 
+// One field of an application/x-www-form-urlencoded body, decoded into out
+// (at most cap bytes plus the terminator). Returns its decoded length; -1 if
+// the field is absent; -2 if it is longer than cap or holds a malformed escape
+// (out is then empty). For forms with fields beyond ssid and password.
+int pc_form_field(const char *body, size_t len, const char *name, char *out, size_t cap);
+
 // FR-13.7: copy `in` to `out` with & < > " ' escaped; cut to fit `cap`.
 void pc_html_escape(const char *in, char *out, size_t cap);

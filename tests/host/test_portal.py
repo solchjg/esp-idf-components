@@ -93,3 +93,43 @@ def test_html_special_characters_are_escaped(tmp_path_factory, parse):
     exe = next(tmp_path_factory.getbasetemp().rglob("pc"))
     out = sp.run([str(exe), "<b>&\"'", "escape"], capture_output=True, text=True).stdout
     assert out == "&lt;b&gt;&amp;&quot;&#39;"
+
+
+FIELD_HARNESS = r"""
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "portal_core.h"
+
+// argv: <body> <name> <cap>
+int main(int argc, char **argv)
+{
+    char out[128];
+    memset(out, 'X', sizeof out);
+    int n = pc_form_field(argv[1], strlen(argv[1]), argv[2], out, (size_t)atoi(argv[3]));
+    printf("%d|%s", n, out);
+    return 0;
+}
+"""
+
+
+@pytest.fixture(scope="module")
+def field(compile_harness):
+    return compile_harness("portal_field", FIELD_HARNESS, ["portal/portal_core.c"],
+                           ["portal/include"])
+
+
+def test_form_field_decodes_the_named_field(field):
+    body = "ssid=a&password=&mail_host=smtp.gmail.com&mail_to=joe%40ex.com&mail_time=07%3A00"
+    assert field(body, "mail_host", 64) == "14|smtp.gmail.com"
+    assert field(body, "mail_to", 64) == "10|joe@ex.com"
+    assert field(body, "mail_time", 64) == "5|07:00"
+    assert field(body, "password", 64) == "0|"
+    assert field(body, "mail", 64) == "-1|", "a prefix of a field name is not that field"
+    assert field(body, "mail_port", 64) == "-1|"
+
+
+def test_form_field_refuses_too_long_or_malformed(field):
+    assert field("a=12345", "a", 4) == "-2|"
+    assert field("a=1234", "a", 4) == "4|1234"
+    assert field("a=%zz", "a", 4) == "-2|"
