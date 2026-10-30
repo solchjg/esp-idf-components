@@ -21,6 +21,9 @@ int main(int argc, char **argv)
 {
     sc_status_t st = {argv[2], (uint32_t)strtoul(argv[3], NULL, 10), atoi(argv[4]),
                       argv[5], argv[6], (uint32_t)strtoul(argv[7], NULL, 10)};
+    if (argc > 8) {
+        st.extra_html = argv[8];
+    }
     static char out[SC_PAGE_MAX];
     if (strcmp(argv[1], "json") == 0) {
         sc_render_json(&st, out, sizeof out);
@@ -67,3 +70,9 @@ def test_html_page_shows_every_field_and_no_uptime(render):
         assert value in text, f"{value} missing from the page"
     assert "uptime" not in text.lower() and "Up:" not in text
     assert text.lstrip().lower().startswith("<!doctype html>")
+
+
+def test_html_page_carries_the_apps_extra_markup_after_the_table(render):
+    assert "</table></body>" in render("html", *SAMPLE), "nothing extra by default"
+    page = render("html", *SAMPLE, "<h2>Weather</h2><p>21.43 &deg;C</p>")
+    assert "</table><h2>Weather</h2><p>21.43 &deg;C</p></body></html>" in page

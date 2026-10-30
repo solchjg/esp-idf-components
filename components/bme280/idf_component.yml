@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "BME280 temperature, humidity and pressure sensor on I2C, forced mode (needs esp_try)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"

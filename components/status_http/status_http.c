@@ -51,9 +51,14 @@ static void unwatch(void)
 static esp_err_t get_root(httpd_req_t *req)
 {
     watch();
-    static char page[SC_PAGE_MAX];
+    static char page[SC_PAGE_MAX], extra[SC_EXTRA_MAX];
     sc_status_t st;
     collect(&st);
+    if (source->extra_html) {
+        extra[0] = '\0';
+        source->extra_html(extra, sizeof extra);
+        st.extra_html = extra;
+    }
     sc_render_html(&st, page, sizeof page);
     esp_err_t err = answer(req, "text/html; charset=utf-8", page, st.requests);
     unwatch();
