@@ -16,6 +16,13 @@ HARNESS = r"""
 
 int main(int argc, char **argv)
 {
+    if (argc > 3 && strcmp(argv[2], "field") == 0) {
+        char out[17];
+        memset(out, 'X', sizeof out);
+        int n = pc_field(argv[1], strlen(argv[1]), argv[3], out, 16);
+        printf("%d|%.*s", n, (int)sizeof out, out);
+        return 0;
+    }
     if (argc > 2 && strcmp(argv[2], "escape") == 0) {
         char out[256];
         pc_html_escape(argv[1], out, sizeof out);
@@ -93,3 +100,21 @@ def test_html_special_characters_are_escaped(tmp_path_factory, parse):
     exe = next(tmp_path_factory.getbasetemp().rglob("pc"))
     out = sp.run([str(exe), "<b>&\"'", "escape"], capture_output=True, text=True).stdout
     assert out == "&lt;b&gt;&amp;&quot;&#39;"
+
+
+# pc_field: one extra field of the form body, for fields an app adds
+@pytest.mark.parametrize("body,name,expect", [
+    ("ssid=a&password=&mail_to=me%40x.org", "mail_to", "8|me@x.org"),
+    ("mail_port=465&ssid=a", "mail_port", "3|465"),
+    ("ssid=a&mail_time=", "mail_time", "0|"),                  # present but empty
+    ("ssid=a&mail_host2=x", "mail_host", "-1|"),               # a longer name is not it
+    ("ssid=a", "mail_host", "-1|"),                            # absent
+    ("mail_user=%ZZ", "mail_user", "-2|"),                     # malformed escape
+    ("mail_user=" + "u" * 17, "mail_user", "-2|"),             # longer than the limit
+    ("mail_user=" + "u" * 16, "mail_user", "16|" + "u" * 16),  # exactly the limit
+])
+def test_one_extra_field_is_decoded(tmp_path_factory, parse, body, name, expect):
+    import subprocess as sp
+    exe = next(tmp_path_factory.getbasetemp().rglob("pc"))
+    out = sp.run([str(exe), body, "field", name], capture_output=True, text=True).stdout
+    assert out == expect

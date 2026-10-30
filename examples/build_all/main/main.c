@@ -4,6 +4,7 @@
 #include "deep_sleep.h"
 #include "esp_try.h"
 #include "identity.h"
+#include "mail_tx.h"
 #include "mdns_name.h"
 #include "ota_rx.h"
 #include "portal.h"

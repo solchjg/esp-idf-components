@@ -7,4 +7,12 @@ menu "Provisioning portal"
             The <title> of the WiFi setup form and of its confirmation page.
             Plain text: no quotes or markup.
 
+    config PORTAL_BODY_MAX
+        int "Largest form submission (bytes)"
+        default 1024
+        range 256 4096
+        help
+            A longer POST /connect body is answered 400. Room for the WiFi
+            fields and any extra fields the app adds, percent-encoded.
+
 endmenu

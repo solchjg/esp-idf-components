@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0"
 description: "Captive WiFi setup portal: HTTP form and captive DNS on the SoftAP"
 url: https://github.com/solchjg/esp-idf-components
 dependencies:
