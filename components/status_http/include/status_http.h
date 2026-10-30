@@ -1,6 +1,7 @@
 // Status HTTP Server (FSD §14): GET / and GET /api/status on port 80, ONLINE only.
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "esp_err.h"
@@ -18,6 +19,10 @@ typedef struct {
     const char *hostname;
     int (*rssi)(void);
     status_http_log_cb_t log;
+    // Optional (may be NULL): writes the app's own markup, shown on the page
+    // after the status table, into out (at most len bytes, terminator included).
+    // Called from the server task; the app escapes what it writes.
+    void (*extra_html)(char *out, size_t len);
 } status_http_source_t;
 
 esp_err_t status_http_start(const status_http_source_t *src);

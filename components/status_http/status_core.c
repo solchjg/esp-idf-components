@@ -27,7 +27,7 @@ void sc_render_html(const sc_status_t *st, char *out, size_t len)
              "<tr><th>IP address</th><td>%s</td></tr>"
              "<tr><th>Hostname</th><td>%s</td></tr>"
              "<tr><th>Requests</th><td>%" PRIu32 "</td></tr>"
-             "</table></body></html>",
+             "</table>%s</body></html>",
              st->hostname, st->hostname, st->fw_version, st->free_heap, st->rssi_dbm,
-             st->ip, st->hostname, st->requests);
+             st->ip, st->hostname, st->requests, st->extra_html ? st->extra_html : "");
 }
