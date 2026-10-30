@@ -1,0 +1,29 @@
+menu "Deep sleep"
+
+    config DEEP_SLEEP_MIN_S
+        int "Shortest sleep period (s)"
+        range 1 86400
+        default 1
+
+    config DEEP_SLEEP_MAX_S
+        int "Longest sleep period (s)"
+        range 1 31536000
+        default 86400
+
+    config DEEP_SLEEP_WAKE_GPIO
+        int "Active-low GPIO that also wakes the chip (-1: timer only)"
+        range -1 21
+        default -1
+        help
+            Must be an RTC GPIO (0 - 21 on the ESP32-S3). On the T-Display-S3
+            AMOLED the second key is GPIO 21. GPIO 0 (BOOT) is a strapping pin:
+            avoid it.
+
+    config DEEP_SLEEP_WAKE_PULLUP
+        bool "Pull the wake GPIO up internally during sleep"
+        depends on DEEP_SLEEP_WAKE_GPIO >= 0
+        default y
+        help
+            Turn off when the board has its own pull-up on the pin.
+
+endmenu

@@ -29,5 +29,8 @@ esp_err_t wifi_net_softap_start(const char *ssid);  // open network
 // Stops any SoftAP and starts one attempt; an empty password joins an open network.
 esp_err_t wifi_net_sta_start(const char *ssid, const char *password);
 void wifi_net_sta_stop(void);  // abandons the current attempt
+// Radio off, station and SoftAP down (e.g. before deep sleep); the next
+// *_start turns it on again. ESP_ERR_WIFI_NOT_INIT before wifi_net_init.
+esp_err_t wifi_net_stop(void);
 int wifi_net_rssi(void);       // 0 when not associated
 void wifi_net_gateway(char out[16]);  // the station's default gateway, dotted quad

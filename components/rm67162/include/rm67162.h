@@ -47,6 +47,11 @@ esp_err_t rm67162_fill(int x, int y, int w, int h, uint16_t rgb565);
 // is how the panel is lit.
 esp_err_t rm67162_brightness(uint8_t level);
 
+// Dark, display off and sleep in, then the power GPIO (if any) driven low and
+// held there, through a deep sleep too. Only rm67162_start (after the reboot a
+// deep-sleep wake is) lights the panel again; it releases the hold.
+esp_err_t rm67162_sleep(void);
+
 // The QSPI bus sends bytes in memory order; the RM67162 wants RGB565 MSB first.
 static inline uint16_t rm67162_bus_colour(uint16_t rgb565)
 {

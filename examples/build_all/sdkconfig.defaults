@@ -1,0 +1,2 @@
+# Compile the optional code paths too.
+CONFIG_DEEP_SLEEP_WAKE_GPIO=21
