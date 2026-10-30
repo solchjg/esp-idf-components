@@ -1,0 +1,14 @@
+menu "Time sync"
+
+    config TIME_SYNC_SERVER
+        string "SNTP server"
+        default "pool.ntp.org"
+
+    config TIME_SYNC_TZ
+        string "Time zone (POSIX TZ string)"
+        default "UTC0"
+        help
+            For example "CET-1CEST,M3.5.0,M10.5.0/3" for Central Europe or
+            "EST5EDT,M3.2.0,M11.1.0" for US Eastern.
+
+endmenu

@@ -12,6 +12,7 @@
 #include "tdisplay_s3.h"
 #include "tdisplay_s3_amoled.h"
 #include "text.h"
+#include "time_sync.h"
 #include "udp_log.h"
 #include "wifi_net.h"
 
