@@ -10,7 +10,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | Component | Use it for | Kconfig options (default) | Also needs |
 |-----------|------------|---------------------------|------------|
 | `wifi_net` | station + open SoftAP, credentials in NVS | `WIFI_NET_SOFTAP_CHANNEL` (1), `WIFI_NET_SOFTAP_MAX_CLIENTS` (4), `WIFI_NET_NVS_NAMESPACE` ("net") | `esp_try` |
-| `portal` | captive WiFi setup form on the SoftAP (192.168.4.1) | `PORTAL_PAGE_TITLE` ("TDS3 setup") | — |
+| `portal` | captive WiFi setup form on the SoftAP (192.168.4.1); the app can add its own fields (`portal_start_extra`, `pc_form_field`) | `PORTAL_PAGE_TITLE` ("TDS3 setup") | — |
 | `identity` | SoftAP SSID and hostname from the base MAC | `IDENTITY_SOFTAP_SSID_PREFIX` ("TDS3-"), `IDENTITY_HOSTNAME_PREFIX` ("tds3-") | — |
 | `status_http` | `GET /` and `GET /api/status`, a server other routes can join | — | — |
 | `ota_rx` | `POST /ota` download into the other slot | — | `status_http` or any `httpd_handle_t` |
@@ -20,6 +20,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | `deep_sleep` | deep sleep for a period, app prepare callbacks before it, the wake cause after | `DEEP_SLEEP_MIN_S` (1), `DEEP_SLEEP_MAX_S` (86400), `DEEP_SLEEP_WAKE_GPIO` (-1: timer only), `DEEP_SLEEP_WAKE_PULLUP` (y) | `esp_try` |
 | `time_sync` | time zone and SNTP while a network is up; synced state survives deep sleep | `TIME_SYNC_SERVER` ("pool.ntp.org"), `TIME_SYNC_TZ` ("UTC0") | — |
 | `bme280` | BME280 temperature, humidity and pressure on I2C, one forced reading per call, configured by `bme280_config_t` | — | `esp_try` |
+| `mail_tx` | one plain-text email over SMTP with TLS (465) or STARTTLS (587), server certificate checked against the CA bundle; pure core for the message and the SMTP dialogue | — | — |
 | `st7789` | ST7789 panel on an 8-bit i80 bus, configured by `st7789_config_t` | — | `esp_try` |
 | `rm67162` | RM67162 AMOLED panel on a QSPI bus, configured by `rm67162_config_t`; same API shape as `st7789` | — | `esp_try` |
 | `text` | 16 × 32 bitmap font renderer, pure C | — | — |
@@ -34,7 +35,7 @@ Set Kconfig options with `idf.py menuconfig` or in the project's
 
 - No component includes an app's components: it reports through callbacks the
   app registers, and takes app-specific values from its own Kconfig options.
-- Pure cores (`*_core.c`, `identity.c`, `text.c`, `dns_core.c`) include no
+- Pure cores (`*_core.c`, `mail_core.c`, `identity.c`, `text.c`, `dns_core.c`) include no
   ESP-IDF headers, so `tests/host/` compiles them with the host `cc`.
 - Every call returns `esp_err_t`; no component retries or aborts
   (no `ESP_ERROR_CHECK`). Policy belongs to the app.

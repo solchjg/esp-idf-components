@@ -11,29 +11,38 @@
 static const char *TAG = "web";
 static httpd_handle_t server;
 static portal_submit_cb_t submit_cb;
+static const portal_extra_t *app_extra;
 
-#define BODY_MAX 256
+#define BODY_MAX 1024  // ssid and password plus the app's fields, %XX-encoded
 #define PORTAL_URL "http://192.168.4.1/"
 
-static const char FORM[] =
+static const char FORM_HEAD[] =
     "<!doctype html><html><head><meta charset=\"utf-8\">"
     "<meta name=\"viewport\" content=\"width=device-width\">"
     "<title>" CONFIG_PORTAL_PAGE_TITLE "</title></head>"
     "<body><h1>WiFi setup</h1><form method=\"post\" action=\"/connect\">"
     "<p><label>Network name <input name=\"ssid\" maxlength=\"32\" required></label></p>"
-    "<p><label>Password <input name=\"password\" type=\"password\" maxlength=\"63\"></label></p>"
+    "<p><label>Password <input name=\"password\" type=\"password\" maxlength=\"63\"></label></p>";
+static const char FORM_TAIL[] =
     "<p><button type=\"submit\">Save and connect</button></p></form></body></html>";
 
 static esp_err_t get_root(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Portal page requested");  // K3
     httpd_resp_set_type(req, "text/html");
-    return httpd_resp_send(req, FORM, HTTPD_RESP_USE_STRLEN);
+    esp_err_t err = httpd_resp_send_chunk(req, FORM_HEAD, HTTPD_RESP_USE_STRLEN);
+    if (err == ESP_OK && app_extra && app_extra->form_html) {
+        err = httpd_resp_send_chunk(req, app_extra->form_html, HTTPD_RESP_USE_STRLEN);
+    }
+    if (err == ESP_OK) {
+        err = httpd_resp_send_chunk(req, FORM_TAIL, HTTPD_RESP_USE_STRLEN);
+    }
+    return err == ESP_OK ? httpd_resp_send_chunk(req, NULL, 0) : err;
 }
 
 static esp_err_t post_connect(httpd_req_t *req)
 {
-    char body[BODY_MAX + 1];
+    static char body[BODY_MAX + 1];  // the server runs one handler at a time
     int len = 0;
     if (req->content_len > BODY_MAX) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid field: ssid");
@@ -54,6 +63,14 @@ static esp_err_t post_connect(httpd_req_t *req)
         httpd_resp_set_type(req, "text/plain");
         return httpd_resp_sendstr(req, res == PC_BAD_SSID ? "invalid field: ssid"
                                                           : "invalid field: password");
+    }
+    const char *bad = app_extra && app_extra->check ? app_extra->check(body, (size_t)len) : NULL;
+    if (bad) {
+        char msg[64];
+        snprintf(msg, sizeof msg, "invalid field: %s", bad);
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_set_type(req, "text/plain");
+        return httpd_resp_sendstr(req, msg);
     }
     char esc[6 * PC_SSID_MAX + 1], page[512];
     pc_html_escape(creds.ssid, esc, sizeof esc);
@@ -79,7 +96,13 @@ static esp_err_t get_other(httpd_req_t *req)
 
 esp_err_t portal_start(portal_submit_cb_t on_submit)
 {
+    return portal_start_extra(on_submit, NULL);
+}
+
+esp_err_t portal_start_extra(portal_submit_cb_t on_submit, const portal_extra_t *extra)
+{
     submit_cb = on_submit;
+    app_extra = extra;
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.uri_match_fn = httpd_uri_match_wildcard;
     esp_err_t err = httpd_start(&server, &cfg);
