@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "Time zone and SNTP sync while a network is up; synced state survives deep sleep"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
