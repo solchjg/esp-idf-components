@@ -10,7 +10,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | Component | Use it for | Kconfig options (default) | Also needs |
 |-----------|------------|---------------------------|------------|
 | `wifi_net` | station + open SoftAP, credentials in NVS | `WIFI_NET_SOFTAP_CHANNEL` (1), `WIFI_NET_SOFTAP_MAX_CLIENTS` (4), `WIFI_NET_NVS_NAMESPACE` ("net") | `esp_try` |
-| `portal` | captive WiFi setup form on the SoftAP (192.168.4.1) | `PORTAL_PAGE_TITLE` ("TDS3 setup") | — |
+| `portal` | captive WiFi setup form on the SoftAP (192.168.4.1), optionally with app fields (`portal_start_extra`) | `PORTAL_PAGE_TITLE` ("TDS3 setup"), `PORTAL_BODY_MAX` (1024) | — |
 | `identity` | SoftAP SSID and hostname from the base MAC | `IDENTITY_SOFTAP_SSID_PREFIX` ("TDS3-"), `IDENTITY_HOSTNAME_PREFIX` ("tds3-") | — |
 | `status_http` | `GET /` and `GET /api/status`, a server other routes can join | — | — |
 | `ota_rx` | `POST /ota` download into the other slot | — | `status_http` or any `httpd_handle_t` |
@@ -19,6 +19,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | `button` | long-press (5 s) detector on an active-low GPIO | `BUTTON_GPIO` (0) | — |
 | `deep_sleep` | deep sleep for a period, app prepare callbacks before it, the wake cause after | `DEEP_SLEEP_MIN_S` (1), `DEEP_SLEEP_MAX_S` (86400), `DEEP_SLEEP_WAKE_GPIO` (-1: timer only), `DEEP_SLEEP_WAKE_PULLUP` (y) | `esp_try` |
 | `time_sync` | time zone and SNTP while a network is up; synced state survives deep sleep | `TIME_SYNC_SERVER` ("pool.ntp.org"), `TIME_SYNC_TZ` ("UTC0") | — |
+| `mail_tx` | one plain-text email over SMTP: TLS on 465, STARTTLS otherwise, CA-bundle verified, AUTH PLAIN or LOGIN | — (needs `MBEDTLS_CERTIFICATE_BUNDLE`, on by default) | — |
 | `bme280` | BME280 temperature, humidity and pressure on I2C, one forced reading per call, configured by `bme280_config_t` | — | `esp_try` |
 | `st7789` | ST7789 panel on an 8-bit i80 bus, configured by `st7789_config_t` | — | `esp_try` |
 | `rm67162` | RM67162 AMOLED panel on a QSPI bus, configured by `rm67162_config_t`; same API shape as `st7789` | — | `esp_try` |

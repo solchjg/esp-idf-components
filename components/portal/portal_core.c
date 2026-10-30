@@ -72,6 +72,24 @@ pc_result_t pc_parse_form(const char *body, size_t len, pc_creds_t *out)
     return PC_OK;
 }
 
+int pc_field(const char *body, size_t len, const char *name, char *out, size_t max)
+{
+    size_t nlen = strlen(name);
+    out[0] = '\0';
+    const char *p = body, *end = body + len;
+    while (p < end) {
+        const char *amp = memchr(p, '&', (size_t)(end - p));
+        const char *field_end = amp ? amp : end;
+        const char *eq = memchr(p, '=', (size_t)(field_end - p));
+        if (eq && (size_t)(eq - p) == nlen && memcmp(p, name, nlen) == 0) {
+            int n = decode(eq + 1, field_end, out, max);
+            return n < 0 ? PC_FIELD_BAD : n;
+        }
+        p = amp ? amp + 1 : end;
+    }
+    return PC_FIELD_ABSENT;
+}
+
 void pc_html_escape(const char *in, char *out, size_t cap)
 {
     size_t n = 0;

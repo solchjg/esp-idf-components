@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "One plain-text email over SMTP with TLS (465) or STARTTLS (587), CA-bundle verified, AUTH PLAIN or LOGIN"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
