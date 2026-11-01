@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define SC_PAGE_MAX 1536
-#define SC_EXTRA_MAX 384  // the app's own HTML after the table, terminator included
+#define SC_EXTRA_MAX 512  // the app's own HTML after the table, terminator included
 
 // The six §14.2 fields; strings are not escaped by the caller.
 typedef struct {
