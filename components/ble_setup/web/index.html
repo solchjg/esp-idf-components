@@ -82,11 +82,16 @@ function render(body) {
     }
     box.append(label, input);
   };
+  // A secret's box goes where its "<name>_set" flag stands in the body.
   for (const [k, v] of params) {
-    if (k.endsWith('_set')) { secrets[k.slice(0, -4)] = v === '1' ? 'stored' : 'none'; continue; }
+    if (k.endsWith('_set')) {
+      const name = k.slice(0, -4);
+      secrets[name] = v === '1' ? 'stored' : 'none';
+      add(name, '', secrets[name]);
+      continue;
+    }
     add(k, v, false);
   }
-  for (const [k, state] of Object.entries(secrets)) add(k, '', state);
   $('form').hidden = false;
 }
 
