@@ -43,8 +43,38 @@ static char *read_buf;   // CONFIG_BLE_SETUP_BODY_MAX
 static bs_session_t session;
 static char result[RESULT_MAX] = "none";
 static SemaphoreHandle_t host_stopped;
+static ble_store_read_fn *store_read;  // the RAM store's own reader
+static struct ble_npl_event drop_ev;   // drops the link of a central with a stale key
+static bool stale_key;                 // this link's central presented one
 
 static void advertise(void);
+
+// No bonds are kept (sm_bonding = 0), so a central that starts encryption with
+// a key it remembers (ediv/rand present: an LTK lookup) holds one this device
+// never stored. NimBLE answers it with a negative reply and then waits up to
+// 30 s for an encryption change that never comes, while the central, still
+// connected, gets no answer. Drop the link at once instead, so the central
+// learns the key is gone (Android then forgets it) and its next connection
+// pairs afresh; the setup page reconnects once by itself.
+// Runs in the host task with the host lock held, so the drop is posted.
+static int read_store(int obj_type, const union ble_store_key *key, union ble_store_value *val)
+{
+    int rc = store_read(obj_type, key, val);
+    if (rc == BLE_HS_ENOENT && obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC &&
+        key->sec.ediv_rand_present && conn != BLE_HS_CONN_HANDLE_NONE && !stale_key) {
+        stale_key = true;
+        ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &drop_ev);
+    }
+    return rc;
+}
+
+static void drop_stale(struct ble_npl_event *ev)
+{
+    if (conn != BLE_HS_CONN_HANDLE_NONE) {
+        ESP_LOGW(TAG, "central has a key from an earlier pairing: disconnecting");
+        ble_gap_terminate(conn, BLE_ERR_AUTH_FAIL);
+    }
+}
 
 static void emit(ble_setup_event_t ev)
 {
@@ -171,6 +201,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         }
         conn = event->connect.conn_handle;
         ESP_LOGI(TAG, "connected");
+        stale_key = false;
         bs_reset(&session);
         strcpy(result, "none");
         emit(BLE_SETUP_EV_CONNECTED);
@@ -203,6 +234,9 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         if (!ok) {
             ESP_LOGW(TAG, "pairing failed: status 0x%x encrypted %d authenticated %d",
                      event->enc_change.status, desc.sec_state.encrypted, desc.sec_state.authenticated);
+        }
+        if (!ok && stale_key) {
+            return 0;  // a stale key, not a pairing: drop_stale() ends the link
         }
         emit(ok ? BLE_SETUP_EV_PAIRED : BLE_SETUP_EV_PAIR_FAILED);
         return 0;
@@ -348,6 +382,9 @@ esp_err_t ble_setup_start(const ble_setup_config_t *c)
         return ESP_FAIL;
     }
     ble_store_config_init();
+    store_read = ble_hs_cfg.store_read_cb;
+    ble_hs_cfg.store_read_cb = read_store;
+    ble_npl_event_init(&drop_ev, drop_stale, NULL);
     running = true;
     xSemaphoreTake(host_stopped, 0);
     nimble_port_freertos_init(host_task);
@@ -363,6 +400,8 @@ esp_err_t ble_setup_stop(void)
     if (nimble_port_stop() == 0) {
         xSemaphoreTake(host_stopped, pdMS_TO_TICKS(2000));
     }
+    ble_npl_eventq_remove(nimble_port_get_dflt_eventq(), &drop_ev);
+    ble_npl_event_deinit(&drop_ev);
     esp_err_t err = nimble_port_deinit();
     conn = BLE_HS_CONN_HANDLE_NONE;
     release();

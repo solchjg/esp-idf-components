@@ -110,24 +110,65 @@ function render(body) {
   $('form').hidden = false;
 }
 
-async function connect() {
-  status('Choose the device in the list…');
-  device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
-  device.addEventListener('gattserverdisconnected', () => {
-    $('done').disabled = true; $('save').disabled = true; $('hdl').disabled = true;
-    if (!$('status').className) status('Disconnected.');
-  });
-  const server = await device.gatt.connect();
-  const svc = await server.getPrimaryService(SVC);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// A step that needs no person bounded in time, so a link that went quiet
+// fails here instead of leaving the page waiting for ever.
+function bounded(p, ms, what) {
+  let t;
+  return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what}: no answer`)), ms); })])
+    .finally(() => clearTimeout(t));
+}
+
+function linkDown() {
+  $('done').disabled = true; $('save').disabled = true; $('hdl').disabled = true;
+  if (!busy && !$('status').className) status('Disconnected.');
+}
+
+async function openLink() {
+  if (device.gatt.connected) device.gatt.disconnect();  // a link left from before
+  const server = await bounded(device.gatt.connect(), 15000, 'connect');
+  const svc = await bounded(server.getPrimaryService(SVC), 10000, 'services');
+  chars = {};
   for (const [k, u] of Object.entries({ info: INFO, settings: SETTINGS, result: RESULT, control: CONTROL })) {
-    chars[k] = await svc.getCharacteristic(u);
+    chars[k] = await bounded(svc.getCharacteristic(u), 10000, 'services');
   }
-  info = new URLSearchParams(dec.decode(await chars.info.readValue()));
+  info = new URLSearchParams(dec.decode(await bounded(chars.info.readValue(), 10000, 'info')));
   $('info').textContent = [...info].filter(([k]) => k !== 'history')
     .map(([k, v]) => `${k}: ${v}`).join(' · ');
-  if (info.has('history')) chars.history = await svc.getCharacteristic(HISTORY);
+  if (info.has('history')) chars.history = await bounded(svc.getCharacteristic(HISTORY), 10000, 'services');
   status('Pairing: type the code shown on the device…');
   render(await readAll());  // the first protected read starts pairing
+}
+
+let busy = false;
+async function connect() {
+  status('Choose the device in the list…');
+  const picked = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
+  if (picked !== device) {
+    if (device && device.gatt.connected) device.gatt.disconnect();
+    device = picked;
+    device.addEventListener('gattserverdisconnected', linkDown);
+  }
+  busy = true;
+  try {
+    // A phone that kept a key from an earlier pairing is disconnected by the
+    // device, and forgets the key; the second try pairs afresh.
+    for (let tries = 1; ; tries++) {
+      try {
+        status('Connecting…');
+        await openLink();
+        break;
+      } catch (e) {
+        if (device.gatt.connected) device.gatt.disconnect();
+        if (tries === 2) {
+          throw new Error(`${e.message || e}. Try again; if it keeps failing, remove ${device.name} from the phone's Bluetooth devices first.`);
+        }
+        await sleep(1500);
+      }
+    }
+  } finally {
+    busy = false;
+  }
   $('done').disabled = false; $('save').disabled = false; $('hdl').disabled = false;
   $('hist').hidden = !chars.history;
   status(`Connected to ${device.name}.`);
