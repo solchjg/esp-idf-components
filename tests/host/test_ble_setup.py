@@ -30,7 +30,7 @@ int main(int argc, char **argv)
             free(x);
         } else if (a[0] == 'r') {
             bs_reset(&s);
-            printf("%zu:%u;", s.len, (unsigned)s.read_off);
+            printf("%zu:%u:%u;", s.len, (unsigned)s.read_off, (unsigned)s.hist_line);
         } else if (a[0] == 'p') {
             static char all[1300];
             for (int j = 0; j < 1300; j++) all[j] = (char)('0' + j % 10);
@@ -40,6 +40,8 @@ int main(int argc, char **argv)
         } else if (a[0] == 'c') {
             uint32_t arg = 7;
             bs_ctrl_t c = bs_control(a + 2, strlen(a + 2), &arg);
+            if (c == BS_CTRL_READ) s.read_off = arg;
+            if (c == BS_CTRL_HIST) s.hist_line = arg;
             printf("%d:%u;", (int)c, (unsigned)arg);
         } else if (a[0] == 'k') {
             char out[7];
@@ -73,8 +75,9 @@ def test_body_at_exactly_cap_is_kept(core):
         ["1:512", "1:1024", "1:1536", "1:2048", "0:0"]
 
 
-def test_reset_clears_body_and_read_page(core):
-    assert core(64, "a:x=1", "c:read=512", "r") == ["1:3:x=1", "3:512", "0:0"]
+def test_reset_clears_body_read_page_and_history_line(core):
+    assert core(64, "a:x=1", "c:read=512", "c:hist=40", "r") == \
+        ["1:3:x=1", "3:512", "4:40", "0:0:0"]
 
 
 @pytest.mark.parametrize("value,expected", [
@@ -82,6 +85,9 @@ def test_reset_clears_body_and_read_page(core):
     ("read=999999999", "3:999999999"),
     ("", "0:7"), ("Apply", "0:7"), ("apply ", "0:7"), ("read=", "0:7"), ("read=-1", "0:7"),
     ("read=1x", "0:7"), ("read=1234567890", "0:7"), ("done\n", "0:7"),
+    ("hist=0", "4:0"), ("hist=10700", "4:10700"), ("hist=", "0:7"), ("hist=x", "0:7"),
+    ("hist=1234567890", "0:7"), ("range=", "5:6"), ("range=2026-10-01,2026-10-31", "5:6"),
+    ("range", "0:7"), ("Range=,", "0:7"),
 ])
 def test_control_commands(core, value, expected):
     assert core(16, f"c:{value}") == [expected]

@@ -22,6 +22,8 @@
   .hint { color:var(--muted); font-size:.8rem; }
   #status { margin-top:16px; min-height:1.5em; }
   .bad { color:var(--bad); } .good { color:var(--good); }
+  h2 { font-size:1.1rem; margin:28px 0 0; }
+  .dates { display:flex; gap:12px; flex-wrap:wrap; } .dates > div { flex:1 1 140px; }
 </style>
 </head>
 <body>
@@ -37,6 +39,15 @@
     <div id="fields"></div>
     <div class="row"><button id="save" type="submit">Save settings</button></div>
   </form>
+  <section id="hist" hidden>
+    <h2>History</h2>
+    <p class="hint">Download the device's history as CSV. Leave a date empty for an open end.</p>
+    <div class="dates">
+      <div><label for="hfrom">From</label><input id="hfrom" type="date"></div>
+      <div><label for="hto">To</label><input id="hto" type="date"></div>
+    </div>
+    <div class="row"><button id="hdl" type="button">Download history</button></div>
+  </section>
   <div id="status" role="status"></div>
 </main>
 <script>
@@ -45,11 +56,15 @@
 // "invalid=<field>". Reads of `settings` come in 512-byte pages chosen with
 // `control` "read=<offset>". Secrets are never read: "<name>_set=1" says one is
 // stored, and leaving its box empty keeps it.
+// History (optional): `info` carries "history=<CSV header>" when the device
+// keeps one. "range=<from>,<to>" (YYYY-MM-DD, either empty) sets the filter;
+// "hist=<n>" chooses the first line the next `history` read returns, as many
+// whole lines as fit in 512 bytes, empty past the last.
 const BASE = (x) => `6e0a00${x}-7d3b-4c2a-9f1e-54445333424c`;
-const SVC = BASE('01'), INFO = BASE('02'), SETTINGS = BASE('03'), RESULT = BASE('04'), CONTROL = BASE('05');
+const SVC = BASE('01'), INFO = BASE('02'), SETTINGS = BASE('03'), RESULT = BASE('04'), CONTROL = BASE('05'), HISTORY = BASE('06');
 const enc = new TextEncoder(), dec = new TextDecoder();
 const $ = (id) => document.getElementById(id);
-let device, chars = {}, secrets = {};
+let device, chars = {}, secrets = {}, info = new URLSearchParams();
 
 function status(text, cls = '') { const s = $('status'); s.textContent = text; s.className = cls; }
 
@@ -99,7 +114,7 @@ async function connect() {
   status('Choose the device in the list…');
   device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
   device.addEventListener('gattserverdisconnected', () => {
-    $('done').disabled = true; $('save').disabled = true;
+    $('done').disabled = true; $('save').disabled = true; $('hdl').disabled = true;
     if (!$('status').className) status('Disconnected.');
   });
   const server = await device.gatt.connect();
@@ -107,11 +122,14 @@ async function connect() {
   for (const [k, u] of Object.entries({ info: INFO, settings: SETTINGS, result: RESULT, control: CONTROL })) {
     chars[k] = await svc.getCharacteristic(u);
   }
-  const info = new URLSearchParams(dec.decode(await chars.info.readValue()));
-  $('info').textContent = [...info].map(([k, v]) => `${k}: ${v}`).join(' · ');
+  info = new URLSearchParams(dec.decode(await chars.info.readValue()));
+  $('info').textContent = [...info].filter(([k]) => k !== 'history')
+    .map(([k, v]) => `${k}: ${v}`).join(' · ');
+  if (info.has('history')) chars.history = await svc.getCharacteristic(HISTORY);
   status('Pairing: type the code shown on the device…');
   render(await readAll());  // the first protected read starts pairing
-  $('done').disabled = false; $('save').disabled = false;
+  $('done').disabled = false; $('save').disabled = false; $('hdl').disabled = false;
+  $('hist').hidden = !chars.history;
   status(`Connected to ${device.name}.`);
 }
 
@@ -134,8 +152,36 @@ async function save(ev) {
   else status(result.startsWith('invalid=') ? `Not saved: check "${result.slice(8)}".` : `Not saved: ${result}`, 'bad');
 }
 
+async function downloadHistory() {
+  const from = $('hfrom').value, to = $('hto').value;
+  if (from && to && from > to) { status('"From" is after "To".', 'bad'); return; }
+  $('hdl').disabled = true;
+  try {
+    await chars.control.writeValueWithResponse(enc.encode(`range=${from},${to}`));
+    const parts = [info.get('history') + '\n'];
+    let n = 0;
+    for (;;) {
+      await chars.control.writeValueWithResponse(enc.encode(`hist=${n}`));
+      const page = dec.decode(await chars.history.readValue());
+      if (!page) break;
+      parts.push(page);
+      n += page.split('\n').length - 1;  // every line ends with a newline
+      status(`Downloading… ${n} readings`);
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(parts, { type: 'text/csv' }));
+    a.download = `${info.get('host') || device.name}-history.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    status(`Saved ${n} readings.`, 'good');
+  } finally {
+    $('hdl').disabled = false;
+  }
+}
+
 $('connect').addEventListener('click', () => connect().catch((e) => status(String(e.message || e), 'bad')));
 $('form').addEventListener('submit', (e) => save(e).catch((x) => status(String(x.message || x), 'bad')));
+$('hdl').addEventListener('click', () => downloadHistory().catch((e) => status(String(e.message || e), 'bad')));
 $('done').addEventListener('click', () => chars.control.writeValueWithResponse(enc.encode('done'))
   .then(() => status('Finished. The device turns Bluetooth off.', 'good'))
   .catch((e) => status(String(e.message || e), 'bad')));
