@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "Append-only log of fixed-size records in a data partition: reuses its oldest sector, skips torn records"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
