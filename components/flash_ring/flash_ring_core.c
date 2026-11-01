@@ -142,6 +142,13 @@ bool fr_next(const fr_geom_t *g, fr_cursor_t *c, fr_read_fn read, void *ctx, voi
     uint8_t r[FR_RECORD_MAX];
     while (c->left > 0) {
         bool ok = read(ctx, fr_offset(g, c->sector, c->slot), r, g->record_size);
+        if (ok && c->slot == 0 && fr_erased(g, r)) {
+            // Slots fill in order, so an erased first slot means an empty sector.
+            uint32_t skip = fr_per_sector(g);
+            c->left -= skip < c->left ? skip : c->left;
+            c->sector = (c->sector + 1) % g->sectors;
+            continue;
+        }
         c->left--;
         if (++c->slot == fr_per_sector(g)) {
             c->slot = 0;

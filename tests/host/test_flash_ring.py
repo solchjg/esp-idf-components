@@ -14,8 +14,11 @@ static const fr_geom_t g = {.sectors = SECTORS, .record_size = RECORD};
 static uint8_t image[SECTORS * FR_SECTOR_SIZE];
 static fr_pos_t pos;
 
+static int reads;
+
 static bool rd(void *ctx, uint32_t off, void *buf, size_t len)
 {
+    reads++;
     memcpy(buf, image + off, len);
     return true;
 }
@@ -62,7 +65,16 @@ int main(int argc, char **argv)
     for (int i = 0; i < count; i++) {
         append(i);
     }
-    if (strcmp(argv[1], "list") == 0) {
+    if (strcmp(argv[1], "reads") == 0) {
+        // Reading to the end: the slots read.
+        fr_cursor_t c;
+        uint8_t payload[RECORD - FR_TRAILER_SIZE];
+        fr_begin(&g, &c, &pos);
+        reads = 0;
+        while (fr_next(&g, &c, rd, NULL, payload)) {
+        }
+        printf("%d", reads);
+    } else if (strcmp(argv[1], "list") == 0) {
         list();
     } else if (strcmp(argv[1], "rescan") == 0) {
         fr_find(&g, rd, NULL, &pos);
@@ -131,3 +143,9 @@ def test_damaged_record_is_skipped(core):
 def test_torn_first_slot_of_the_newest_sector(core):
     out = core("torn0", 130)
     assert out.startswith("n=129 first=0 last=129") and "next=1/2" in out
+
+
+# An empty sector costs one read: a large, mostly empty ring reads quickly
+def test_empty_sectors_are_skipped(core):
+    assert int(core("reads", 0)) == 4
+    assert int(core("reads", 3)) == 3 + 3  # the written slots, one per empty sector
