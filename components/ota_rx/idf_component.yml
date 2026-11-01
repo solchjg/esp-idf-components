@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0"
 description: "POST /ota: download a firmware image into the other OTA slot"
 url: https://github.com/solchjg/esp-idf-components
 dependencies:

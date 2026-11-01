@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "BLE setup: one GATT service carrying a form body, passkey pairing, NimBLE peripheral"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"

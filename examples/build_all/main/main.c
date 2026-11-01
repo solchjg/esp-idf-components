@@ -1,4 +1,5 @@
 // Build check only: links every component's public API into one image.
+#include "ble_setup.h"
 #include "bme280.h"
 #include "button.h"
 #include "deep_sleep.h"

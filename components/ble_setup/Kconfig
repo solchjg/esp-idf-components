@@ -1,0 +1,20 @@
+menu "BLE setup"
+
+    config BLE_SETUP_BODY_MAX
+        int "Largest settings body (bytes)"
+        default 2048
+        range 512 4096
+        help
+            The staged settings body (several writes) and the settings read
+            are cut off at this size; a longer staged body is refused. Match
+            the portal's PORTAL_BODY_MAX so both accept the same forms.
+
+    config BLE_SETUP_ADV_INTERVAL_MS
+        int "Advertising interval (ms)"
+        default 160
+        range 20 10240
+        help
+            Shorter is found faster by a phone and uses more airtime, which
+            WiFi shares.
+
+endmenu

@@ -119,6 +119,10 @@ static esp_err_t post_ota(httpd_req_t *req)
     if (busy) {
         return refuse(req, 409, "download in progress");  // FR-15.12
     }
+    const char *why = hooks->hold ? hooks->hold() : NULL;
+    if (why) {
+        return refuse(req, 409, why);  // the app is not ready for a download
+    }
     char body[BODY_MAX + 1];
     int len = 0;
     if (req->content_len > BODY_MAX) {
@@ -152,6 +156,11 @@ esp_err_t ota_rx_register(httpd_handle_t server, const ota_rx_hooks_t *h)
     hooks = h;
     static const httpd_uri_t ota = {.uri = "/ota", .method = HTTP_POST, .handler = post_ota};
     return httpd_register_uri_handler(server, &ota);
+}
+
+bool ota_rx_busy(void)
+{
+    return busy;
 }
 
 void ota_rx_abort(void)
