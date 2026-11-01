@@ -153,11 +153,19 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             return 0;
         }
         conn = event->connect.conn_handle;
+        ESP_LOGI(TAG, "connected");
         bs_reset(&session);
         strcpy(result, "none");
         emit(BLE_SETUP_EV_CONNECTED);
+        // Ask the central to pair now (Security Request): some stacks (BlueZ under
+        // Chrome) never start pairing on an Insufficient Authentication error.
+        int sec = ble_gap_security_initiate(conn);
+        if (sec != 0) {
+            ESP_LOGW(TAG, "security request failed: %d", sec);
+        }
         return 0;
     case BLE_GAP_EVENT_DISCONNECT:
+        ESP_LOGI(TAG, "disconnected: reason 0x%x", event->disconnect.reason);
         conn = BLE_HS_CONN_HANDLE_NONE;
         bs_reset(&session);
         passkey_down();
@@ -171,14 +179,19 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         return 0;
     case BLE_GAP_EVENT_ENC_CHANGE: {
         passkey_down();
-        struct ble_gap_conn_desc desc;
+        struct ble_gap_conn_desc desc = {0};
         bool ok = event->enc_change.status == 0 &&
                   ble_gap_conn_find(event->enc_change.conn_handle, &desc) == 0 &&
                   desc.sec_state.encrypted && desc.sec_state.authenticated;
+        if (!ok) {
+            ESP_LOGW(TAG, "pairing failed: status 0x%x encrypted %d authenticated %d",
+                     event->enc_change.status, desc.sec_state.encrypted, desc.sec_state.authenticated);
+        }
         emit(ok ? BLE_SETUP_EV_PAIRED : BLE_SETUP_EV_PAIR_FAILED);
         return 0;
     }
     case BLE_GAP_EVENT_PASSKEY_ACTION: {
+        ESP_LOGI(TAG, "passkey action %d", event->passkey.params.action);  // never the passkey
         if (event->passkey.params.action != BLE_SM_IOACT_DISP) {
             return 0;  // DisplayOnly: no other action is negotiated
         }
