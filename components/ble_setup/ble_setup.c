@@ -52,9 +52,10 @@ static void advertise(void);
 
 // No bonds are kept (sm_bonding = 0), so a central that starts encryption with
 // a key it remembers holds one this device never stored: NimBLE looks the key
-// up (our security record for that peer), finds none, answers with a negative
-// reply and then waits up to 30 s for an encryption change that never comes,
-// while the central, still connected, gets no answer. Drop the link at once
+// up (our security record for that peer), finds none and answers with a
+// negative reply, but leaves the link up (older NimBLE even waits 30 s for an
+// encryption change), so the central sits on an unencrypted link whose reads
+// it cannot get answered and never pairs again by itself. Drop the link at once
 // instead, so the central learns the key is gone (Android then forgets it) and
 // its next connection pairs afresh; the setup page reconnects once by itself.
 // A lookup after a pairing has started on the link (the passkey step) is
