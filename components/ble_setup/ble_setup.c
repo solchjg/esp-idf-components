@@ -46,22 +46,25 @@ static SemaphoreHandle_t host_stopped;
 static ble_store_read_fn *store_read;  // the RAM store's own reader
 static struct ble_npl_event drop_ev;   // drops the link of a central with a stale key
 static bool stale_key;                 // this link's central presented one
+static bool pairing;                   // a pairing reached its passkey step on this link
 
 static void advertise(void);
 
 // No bonds are kept (sm_bonding = 0), so a central that starts encryption with
-// a key it remembers (ediv/rand present: an LTK lookup) holds one this device
-// never stored. NimBLE answers it with a negative reply and then waits up to
-// 30 s for an encryption change that never comes, while the central, still
-// connected, gets no answer. Drop the link at once instead, so the central
-// learns the key is gone (Android then forgets it) and its next connection
-// pairs afresh; the setup page reconnects once by itself.
+// a key it remembers holds one this device never stored: NimBLE looks the key
+// up (our security record for that peer), finds none, answers with a negative
+// reply and then waits up to 30 s for an encryption change that never comes,
+// while the central, still connected, gets no answer. Drop the link at once
+// instead, so the central learns the key is gone (Android then forgets it) and
+// its next connection pairs afresh; the setup page reconnects once by itself.
+// A lookup after a pairing has started on the link (the passkey step) is
+// NimBLE's own bookkeeping, not a restore, and is left alone.
 // Runs in the host task with the host lock held, so the drop is posted.
 static int read_store(int obj_type, const union ble_store_key *key, union ble_store_value *val)
 {
     int rc = store_read(obj_type, key, val);
     if (rc == BLE_HS_ENOENT && obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC &&
-        key->sec.ediv_rand_present && conn != BLE_HS_CONN_HANDLE_NONE && !stale_key) {
+        conn != BLE_HS_CONN_HANDLE_NONE && !pairing && !stale_key) {
         stale_key = true;
         ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &drop_ev);
     }
@@ -201,7 +204,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         }
         conn = event->connect.conn_handle;
         ESP_LOGI(TAG, "connected");
-        stale_key = false;
+        stale_key = pairing = false;
         bs_reset(&session);
         strcpy(result, "none");
         emit(BLE_SETUP_EV_CONNECTED);
@@ -243,6 +246,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
     }
     case BLE_GAP_EVENT_PASSKEY_ACTION: {
         ESP_LOGI(TAG, "passkey action %d", event->passkey.params.action);  // never the passkey
+        pairing = true;
         if (event->passkey.params.action != BLE_SM_IOACT_DISP) {
             return 0;  // DisplayOnly: no other action is negotiated
         }
