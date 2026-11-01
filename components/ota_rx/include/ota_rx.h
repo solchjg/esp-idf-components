@@ -23,10 +23,16 @@ typedef struct {
     void (*on_refused)(int status, const char *reason);
     // Every answered request, e.g. to count and log it (may be NULL).
     void (*note)(const char *method, const char *uri, int status);
+    // Before a request is accepted: NULL to go on, or why the app cannot take
+    // a download now, answered 409 (may be NULL).
+    const char *(*hold)(void);
 } ota_rx_hooks_t;
 
 // `hooks` must outlive the server.
 esp_err_t ota_rx_register(httpd_handle_t server, const ota_rx_hooks_t *hooks);
+
+// Whether a download is in progress.
+bool ota_rx_busy(void);
 
 // FR-15.13: abandon a download in progress (it then reports failure).
 void ota_rx_abort(void);

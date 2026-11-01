@@ -10,10 +10,11 @@ only the ones it needs and wires them together in its own `app_main`.
 | Component | Use it for | Kconfig options (default) | Also needs |
 |-----------|------------|---------------------------|------------|
 | `wifi_net` | station + open SoftAP, credentials in NVS | `WIFI_NET_SOFTAP_CHANNEL` (1), `WIFI_NET_SOFTAP_MAX_CLIENTS` (4), `WIFI_NET_NVS_NAMESPACE` ("net") | `esp_try` |
+| `ble_setup` | BLE GATT service carrying the app's settings as a form body, LE Secure Connections passkey pairing, NimBLE peripheral started and stopped on demand; a Web Bluetooth page in `web/` | `BLE_SETUP_BODY_MAX` (2048), `BLE_SETUP_ADV_INTERVAL_MS` (160) | `CONFIG_BT_ENABLED`, `CONFIG_BT_NIMBLE_ENABLED` in the app's sdkconfig |
 | `portal` | captive WiFi setup form on the SoftAP (192.168.4.1), optionally with app fields (`portal_start_extra`) | `PORTAL_PAGE_TITLE` ("TDS3 setup"), `PORTAL_BODY_MAX` (1024) | — |
 | `identity` | SoftAP SSID and hostname from the base MAC | `IDENTITY_SOFTAP_SSID_PREFIX` ("TDS3-"), `IDENTITY_HOSTNAME_PREFIX` ("tds3-") | — |
 | `status_http` | `GET /` and `GET /api/status`, a server other routes can join | — | — |
-| `ota_rx` | `POST /ota` download into the other slot | — | `status_http` or any `httpd_handle_t` |
+| `ota_rx` | `POST /ota` download into the other slot; an app hook can refuse a request (409) | — | `status_http` or any `httpd_handle_t` |
 | `udp_log` | mirror one log tag's lines over UDP | `UDP_LOG_PORT` (5555), `UDP_LOG_TAG` ("web") | — |
 | `mdns_name` | answer `<hostname>.local` | — | `espressif/mdns` (fetched by its manifest) |
 | `button` | long-press (5 s) detector on an active-low GPIO | `BUTTON_GPIO` (0) | — |
