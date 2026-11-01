@@ -31,6 +31,7 @@ static const ble_uuid128_t info_uuid = BS_UUID(0x02);
 static const ble_uuid128_t settings_uuid = BS_UUID(0x03);
 static const ble_uuid128_t result_uuid = BS_UUID(0x04);
 static const ble_uuid128_t control_uuid = BS_UUID(0x05);
+static const ble_uuid128_t history_uuid = BS_UUID(0x06);
 
 static const ble_setup_config_t *cfg;
 static bool running;
@@ -83,6 +84,11 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
         if (ble_uuid_cmp(uuid, &result_uuid.u) == 0) {
             return append(ctxt->om, result, strlen(result));
         }
+        if (ble_uuid_cmp(uuid, &history_uuid.u) == 0) {
+            size_t n = cfg->read_history
+                           ? cfg->read_history(session.hist_line, read_buf, BS_ATTR_MAX) : 0;
+            return append(ctxt->om, read_buf, n);
+        }
         return BLE_ATT_ERR_UNLIKELY;
     }
     if (ctxt->op != BLE_GATT_ACCESS_OP_WRITE_CHR) {
@@ -116,6 +122,15 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
         case BS_CTRL_READ:
             session.read_off = off;
             return 0;
+        case BS_CTRL_HIST:
+            session.hist_line = off;
+            return 0;
+        case BS_CTRL_RANGE:
+            if (!cfg->on_history_range || !cfg->on_history_range(chunk + off, got - off)) {
+                return BLE_ATT_ERR_VALUE_NOT_ALLOWED;
+            }
+            session.hist_line = 0;
+            return 0;
         default:
             return BLE_ATT_ERR_VALUE_NOT_ALLOWED;
         }
@@ -138,6 +153,8 @@ static const struct ble_gatt_svc_def services[] = {
              .flags = BLE_GATT_CHR_F_READ | PAIRED | BLE_GATT_CHR_F_NOTIFY},
             {.uuid = &control_uuid.u, .access_cb = access,
              .flags = BLE_GATT_CHR_F_WRITE | PAIRED_W},
+            {.uuid = &history_uuid.u, .access_cb = access,
+             .flags = BLE_GATT_CHR_F_READ | PAIRED},
             {0},
         },
     },

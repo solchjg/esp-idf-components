@@ -18,10 +18,11 @@ typedef struct {
     size_t cap;
     size_t len;
     uint32_t read_off;  // start of the page `settings` reads return
+    uint32_t hist_line;  // first line `history` reads return; 0 on each connection
 } bs_session_t;
 
 void bs_init(bs_session_t *s, char *buf, size_t cap);
-void bs_reset(bs_session_t *s);  // empty body, read page 0
+void bs_reset(bs_session_t *s);  // empty body, read page 0, history line 0
 
 // Append one write. False, with the body emptied, when it would pass cap.
 bool bs_append(bs_session_t *s, const void *data, size_t len);
@@ -31,9 +32,12 @@ typedef enum {
     BS_CTRL_APPLY,    // `apply`: validate and act on the staged body
     BS_CTRL_DONE,     // `done`: the person has finished
     BS_CTRL_READ,     // `read=<offset>`: later reads start at offset
+    BS_CTRL_HIST,     // `hist=<n>`: later `history` reads start at line n
+    BS_CTRL_RANGE,    // `range=<text>`: the app's filter for `history`
 } bs_ctrl_t;
 
-// Parse a `control` write; *arg gets the offset of BS_CTRL_READ.
+// Parse a `control` write. *arg gets the number of BS_CTRL_READ and
+// BS_CTRL_HIST, and for BS_CTRL_RANGE the offset in v where <text> begins.
 bs_ctrl_t bs_control(const char *v, size_t len, uint32_t *arg);
 
 // The page of `all` that a `settings` read returns: at most BS_ATTR_MAX bytes

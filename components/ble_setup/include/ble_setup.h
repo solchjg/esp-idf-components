@@ -4,12 +4,14 @@
 // central at a time. The app decides when it runs (start/stop) and what the
 // settings mean (the callbacks); the component never stores anything.
 //
-// Service 6e0a0001-7d3b-4c2a-9f1e-54445333424c, characteristics 6e0a0002..05:
+// Service 6e0a0001-7d3b-4c2a-9f1e-54445333424c, characteristics 6e0a0002..06:
 //   info      read, open                 read_info()
 //   settings  read/write, MITM-paired    write: append to the staged body;
 //                                        read: a 512-byte page of read_settings()
 //   result    read/notify, MITM-paired   what on_apply() answered ("none" first)
-//   control   write, MITM-paired         "apply", "done", "read=<offset>"
+//   control   write, MITM-paired         "apply", "done", "read=<offset>",
+//                                        "hist=<n>", "range=<text>"
+//   history   read, MITM-paired          read_history() from line n (0 on connecting)
 #pragma once
 
 #include <stdbool.h>
@@ -39,6 +41,13 @@ typedef struct {
     // A passkey to show (shown true) or to take down (shown false).
     void (*on_passkey)(uint32_t passkey, bool shown);
     void (*on_event)(ble_setup_event_t ev);
+    // Optional: an app's log of lines (for example a history of readings).
+    // Fill out with as many whole lines from line `line` (0 the first) as fit
+    // in cap bytes; 0 past the end. A read may be repeated for the same line.
+    size_t (*read_history)(uint32_t line, char *out, size_t cap);
+    // `control` "range=<text>": the filter later history reads apply; false
+    // refuses the write. The text is not terminated.
+    bool (*on_history_range)(const char *text, size_t len);
 } ble_setup_config_t;
 
 // Controller and host up, advertising. cfg must outlive the run.
