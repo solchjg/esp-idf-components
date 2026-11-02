@@ -14,6 +14,7 @@ void bs_reset(bs_session_t *s)
     s->len = 0;
     s->buf[0] = '\0';
     s->read_off = 0;
+    s->read_form = false;
     s->hist_line = 0;
 }
 
@@ -51,7 +52,8 @@ bs_ctrl_t bs_control(const char *v, size_t len, uint32_t *arg)
         return BS_CTRL_RANGE;
     }
     bool read = len > 5 && memcmp(v, "read=", 5) == 0;
-    if ((read || (len > 5 && memcmp(v, "hist=", 5) == 0)) && len <= 5 + 9) {
+    bool form = len > 5 && memcmp(v, "form=", 5) == 0;
+    if ((read || form || (len > 5 && memcmp(v, "hist=", 5) == 0)) && len <= 5 + 9) {
         uint32_t n = 0;
         for (size_t i = 5; i < len; i++) {
             if (v[i] < '0' || v[i] > '9') {
@@ -60,7 +62,7 @@ bs_ctrl_t bs_control(const char *v, size_t len, uint32_t *arg)
             n = n * 10 + (uint32_t)(v[i] - '0');
         }
         *arg = n;
-        return read ? BS_CTRL_READ : BS_CTRL_HIST;
+        return read ? BS_CTRL_READ : form ? BS_CTRL_FORM : BS_CTRL_HIST;
     }
     return BS_CTRL_BAD;
 }

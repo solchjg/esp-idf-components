@@ -152,8 +152,9 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
             return append(ctxt->om, read_buf, n);
         }
         if (ble_uuid_cmp(uuid, &settings_uuid.u) == 0) {
-            size_t all = cfg->read_settings
-                             ? cfg->read_settings(read_buf, CONFIG_BLE_SETUP_BODY_MAX) : 0;
+            size_t (*src)(char *, size_t) = session.read_form ? cfg->read_form
+                                                              : cfg->read_settings;
+            size_t all = src ? src(read_buf, CONFIG_BLE_SETUP_BODY_MAX) : 0;
             const char *start;
             size_t n = bs_page(read_buf, all, session.read_off, &start);
             return append(ctxt->om, start, n);
@@ -201,6 +202,14 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
             return 0;
         case BS_CTRL_READ:
             session.read_off = off;
+            session.read_form = false;
+            return 0;
+        case BS_CTRL_FORM:
+            if (!cfg->read_form) {
+                return BLE_ATT_ERR_VALUE_NOT_ALLOWED;  // the page then checks nothing itself
+            }
+            session.read_off = off;
+            session.read_form = true;
             return 0;
         case BS_CTRL_HIST:
             session.hist_line = off;

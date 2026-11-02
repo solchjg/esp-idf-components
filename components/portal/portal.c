@@ -19,12 +19,18 @@ static const portal_extra_t *extra_fields;
 static const char FORM_HEAD[] =
     "<!doctype html><html><head><meta charset=\"utf-8\">"
     "<meta name=\"viewport\" content=\"width=device-width\">"
-    "<title>" CONFIG_PORTAL_PAGE_TITLE "</title></head>"
-    "<body><h1>WiFi setup</h1><form method=\"post\" action=\"/connect\">"
+    "<title>" CONFIG_PORTAL_PAGE_TITLE "</title>"
+    // FR-13.8: required fields are starred; a value the browser refuses is outlined.
+    "<style>label:has(:required)::after{content:\" *\";color:#b91c1c}"
+    ":user-invalid{outline:2px solid #b91c1c}#msg{color:#b91c1c}</style></head>"
+    "<body><h1>WiFi setup</h1><p>Fields marked * are required.</p>"
+    "<form method=\"post\" action=\"/connect\">"
     "<p><label>Network name <input name=\"ssid\" maxlength=\"32\" required></label></p>"
-    "<p><label>Password <input name=\"password\" type=\"password\" maxlength=\"63\"></label></p>";
-static const char FORM_TAIL[] =
-    "<p><button type=\"submit\">Save and connect</button></p></form></body></html>";
+    "<p><label>Password (empty for an open network, else 8 – 63 characters) "
+    "<input name=\"password\" type=\"password\" minlength=\"8\" maxlength=\"63\">"
+    "</label></p>";
+// The submit button, the closing tags and the checking script (FR-13.8, FR-13.9).
+extern const char FORM_TAIL[] asm("_binary_form_tail_html_start");
 
 static esp_err_t get_root(httpd_req_t *req)
 {
