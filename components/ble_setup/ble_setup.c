@@ -47,6 +47,10 @@ static ble_store_read_fn *store_read;  // the RAM store's own reader
 static struct ble_npl_event drop_ev;   // drops the link of a central with a stale key
 static bool stale_key;                 // this link's central presented one
 static bool pairing;                   // a pairing reached its passkey step on this link
+static struct ble_npl_callout sec_co;  // the delayed Security Request
+
+// How long a central gets to start pairing by itself before it is asked.
+#define SEC_REQ_DELAY_MS 3000
 
 static void advertise(void);
 
@@ -64,6 +68,9 @@ static void advertise(void);
 static int read_store(int obj_type, const union ble_store_key *key, union ble_store_value *val)
 {
     int rc = store_read(obj_type, key, val);
+    if (obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC || obj_type == BLE_STORE_OBJ_TYPE_PEER_SEC) {
+        ESP_LOGI(TAG, "store read %s sec: %d", obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC ? "our" : "peer", rc);
+    }
     if (rc == BLE_HS_ENOENT && obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC &&
         conn != BLE_HS_CONN_HANDLE_NONE && !pairing && !stale_key) {
         stale_key = true;
@@ -78,6 +85,22 @@ static void drop_stale(struct ble_npl_event *ev)
         ESP_LOGW(TAG, "central has a key from an earlier pairing: disconnecting");
         ble_gap_terminate(conn, BLE_ERR_AUTH_FAIL);
     }
+}
+
+// Ask for pairing (Security Request) only when the central has not started
+// it by itself: some stacks (BlueZ under Chrome) never pair on an
+// Insufficient Authentication error, while Android, after an earlier
+// pairing, leaves a Security Request sent at connection unanswered and both
+// sides time out after 30 s. Android pairs on the page's first protected read.
+static void request_security(struct ble_npl_event *ev)
+{
+    struct ble_gap_conn_desc desc;
+    if (conn == BLE_HS_CONN_HANDLE_NONE || pairing || ble_gap_conn_find(conn, &desc) != 0 ||
+        desc.sec_state.encrypted) {
+        return;
+    }
+    int sec = ble_gap_security_initiate(conn);
+    ESP_LOGI(TAG, "security request: %d", sec);
 }
 
 static void emit(ble_setup_event_t ev)
@@ -209,16 +232,12 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         bs_reset(&session);
         strcpy(result, "none");
         emit(BLE_SETUP_EV_CONNECTED);
-        // Ask the central to pair now (Security Request): some stacks (BlueZ under
-        // Chrome) never start pairing on an Insufficient Authentication error.
-        int sec = ble_gap_security_initiate(conn);
-        if (sec != 0) {
-            ESP_LOGW(TAG, "security request failed: %d", sec);
-        }
+        ble_npl_callout_reset(&sec_co, ble_npl_time_ms_to_ticks32(SEC_REQ_DELAY_MS));
         return 0;
     case BLE_GAP_EVENT_DISCONNECT:
         ESP_LOGI(TAG, "disconnected: reason 0x%x", event->disconnect.reason);
         conn = BLE_HS_CONN_HANDLE_NONE;
+        ble_npl_callout_stop(&sec_co);
         bs_reset(&session);
         passkey_down();
         emit(BLE_SETUP_EV_DISCONNECTED);
@@ -230,6 +249,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         }
         return 0;
     case BLE_GAP_EVENT_ENC_CHANGE: {
+        ESP_LOGI(TAG, "encryption change: status 0x%x", event->enc_change.status);
         passkey_down();
         struct ble_gap_conn_desc desc = {0};
         bool ok = event->enc_change.status == 0 &&
@@ -270,6 +290,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         return BLE_GAP_REPEAT_PAIRING_RETRY;
     }
     default:
+        ESP_LOGI(TAG, "gap event %d", event->type);
         return 0;
     }
 }
@@ -390,6 +411,7 @@ esp_err_t ble_setup_start(const ble_setup_config_t *c)
     store_read = ble_hs_cfg.store_read_cb;
     ble_hs_cfg.store_read_cb = read_store;
     ble_npl_event_init(&drop_ev, drop_stale, NULL);
+    ble_npl_callout_init(&sec_co, nimble_port_get_dflt_eventq(), request_security, NULL);
     running = true;
     xSemaphoreTake(host_stopped, 0);
     nimble_port_freertos_init(host_task);
@@ -405,6 +427,8 @@ esp_err_t ble_setup_stop(void)
     if (nimble_port_stop() == 0) {
         xSemaphoreTake(host_stopped, pdMS_TO_TICKS(2000));
     }
+    ble_npl_callout_stop(&sec_co);
+    ble_npl_callout_deinit(&sec_co);
     ble_npl_eventq_remove(nimble_port_get_dflt_eventq(), &drop_ev);
     ble_npl_event_deinit(&drop_ev);
     esp_err_t err = nimble_port_deinit();
