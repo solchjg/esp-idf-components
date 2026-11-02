@@ -1,5 +1,5 @@
-version: "0.1.0"
-description: "Pure C 16x32 bitmap font renderer (Terminus Bold, SIL OFL 1.1)"
+version: "0.2.0"
+description: "Pure C 16x32 and 12x24 bitmap font renderer (Terminus Bold, SIL OFL 1.1)"
 url: https://github.com/solchjg/esp-idf-components
 dependencies:
   idf: ">=6.0.0"

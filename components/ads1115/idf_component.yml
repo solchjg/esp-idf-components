@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "ADS1115 16-bit ADC on I2C, single-shot conversions and their mean; joins an open bus (needs esp_try)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"

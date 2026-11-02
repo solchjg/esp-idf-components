@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "Pure C 4-20 mA loop core: current from a shunt voltage, NAMUR NE43 fault limits, linear scaling"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
