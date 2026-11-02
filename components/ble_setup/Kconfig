@@ -9,6 +9,16 @@ menu "BLE setup"
             are cut off at this size; a longer staged body is refused. Match
             the portal's PORTAL_BODY_MAX so both accept the same forms.
 
+    config BLE_SETUP_BOND
+        bool "Keep bonds with paired centrals"
+        default n
+        help
+            Bond on pairing, so a central that paired once reconnects by
+            encryption alone, without a new passkey. Android keeps its half
+            of a pairing either way and stalls on the next connection when
+            this side kept none. Set BT_NIMBLE_NVS_PERSIST for bonds to
+            outlive a restart; ble_setup_forget() erases them.
+
     config BLE_SETUP_ADV_INTERVAL_MS
         int "Advertising interval (ms)"
         default 160

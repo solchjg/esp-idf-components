@@ -2,7 +2,9 @@
 // URL-encoded form body (the portal's format), over a link paired by LE Secure
 // Connections with a passkey the app shows. NimBLE, peripheral role only, one
 // central at a time. The app decides when it runs (start/stop) and what the
-// settings mean (the callbacks); the component never stores anything.
+// settings mean (the callbacks). The component stores nothing but, with
+// CONFIG_BLE_SETUP_BOND, the bonds NimBLE keeps (CONFIG_BT_NIMBLE_NVS_PERSIST
+// for them to outlive a restart).
 // Needs CONFIG_BT_NIMBLE_GATT_CLIENT=y (and so ROLE_CENTRAL=y): a phone's
 // indications on connecting must be confirmed, or it drops the link at 30 s.
 //
@@ -73,3 +75,7 @@ esp_err_t ble_setup_start(const ble_setup_config_t *cfg);
 esp_err_t ble_setup_stop(void);
 
 bool ble_setup_running(void);
+
+// Forget every bonded central (a factory reset). Works whether or not BLE
+// is running.
+esp_err_t ble_setup_forget(void);
