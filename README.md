@@ -10,7 +10,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | Component | Use it for | Kconfig options (default) | Also needs |
 |-----------|------------|---------------------------|------------|
 | `wifi_net` | station + open SoftAP, credentials in NVS | `WIFI_NET_SOFTAP_CHANNEL` (1), `WIFI_NET_SOFTAP_MAX_CLIENTS` (4), `WIFI_NET_NVS_NAMESPACE` ("net") | `esp_try` |
-| `ble_setup` | BLE GATT service carrying the app's settings as a form body, an optional paged history of lines (`read_history`, filtered by `range=`), optional field rules the page checks before writing (`read_form`), LE Secure Connections passkey pairing, NimBLE peripheral started and stopped on demand; a Web Bluetooth page in `web/` | `BLE_SETUP_BODY_MAX` (2048), `BLE_SETUP_ADV_INTERVAL_MS` (160) | `CONFIG_BT_ENABLED`, `CONFIG_BT_NIMBLE_ENABLED` in the app's sdkconfig |
+| `ble_setup` | BLE GATT service carrying the app's settings as a form body, an optional paged history of lines (`read_history`, filtered by `range=`), optional field rules the page checks before writing (`read_form`), LE Secure Connections passkey pairing, NimBLE peripheral started and stopped on demand; a Web Bluetooth page in `web/` | `BLE_SETUP_BODY_MAX` (2048), `BLE_SETUP_FORM_MAX` (2048), `BLE_SETUP_ADV_INTERVAL_MS` (160) | `CONFIG_BT_ENABLED`, `CONFIG_BT_NIMBLE_ENABLED` in the app's sdkconfig |
 | `portal` | captive WiFi setup form on the SoftAP (192.168.4.1), optionally with app fields (`portal_start_extra`); the page checks fields in the browser (`required`, `pattern`, … and `data-group`/`data-need` for all-or-nothing groups) and keeps what was typed when the device refuses a submission | `PORTAL_PAGE_TITLE` ("TDS3 setup"), `PORTAL_BODY_MAX` (1024) | — |
 | `identity` | SoftAP SSID and hostname from the base MAC | `IDENTITY_SOFTAP_SSID_PREFIX` ("TDS3-"), `IDENTITY_HOSTNAME_PREFIX` ("tds3-") | — |
 | `status_http` | `GET /` and `GET /api/status`, a server other routes can join | — | — |
@@ -21,6 +21,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | `deep_sleep` | deep sleep for a period, app prepare callbacks before it, the wake cause after | `DEEP_SLEEP_MIN_S` (1), `DEEP_SLEEP_MAX_S` (86400), `DEEP_SLEEP_WAKE_GPIO` (-1: timer only), `DEEP_SLEEP_WAKE_PULLUP` (y) | `esp_try` |
 | `time_sync` | time zone and SNTP while a network is up; synced state survives deep sleep | `TIME_SYNC_SERVER` ("pool.ntp.org"), `TIME_SYNC_TZ` ("UTC0") | — |
 | `mail_tx` | one plain-text email over SMTP: TLS on 465, STARTTLS otherwise, CA-bundle verified, AUTH PLAIN or LOGIN | — (needs `MBEDTLS_CERTIFICATE_BUNDLE`, on by default) | — |
+| `ntfy_tx` | one ntfy push notification (self-hosted or ntfy.sh) by HTTP POST: title, priority, tags, click URL, optional Bearer token; HTTPS CA-bundle verified | — (HTTPS needs `MBEDTLS_CERTIFICATE_BUNDLE`, on by default) | — |
 | `flash_ring` | append-only log of fixed-size records in a data partition: reuses its oldest sector when full, skips torn records, resumes a cut-short clear | — | a data partition; NVS for the clear mark |
 | `bme280` | BME280 temperature, humidity and pressure on I2C, one forced reading per call, configured by `bme280_config_t` | — | `esp_try` |
 | `st7789` | ST7789 panel on an 8-bit i80 bus, configured by `st7789_config_t` | — | `esp_try` |

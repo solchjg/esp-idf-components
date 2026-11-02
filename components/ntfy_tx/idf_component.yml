@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "Publish one ntfy push notification over HTTP or HTTPS (CA-bundle verified), with title, priority, tags, click URL and an optional access token"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
