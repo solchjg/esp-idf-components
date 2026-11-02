@@ -9,6 +9,15 @@ menu "BLE setup"
             are cut off at this size; a longer staged body is refused. Match
             the portal's PORTAL_BODY_MAX so both accept the same forms.
 
+    config BLE_SETUP_FORM_MAX
+        int "Largest field rules text (bytes)"
+        default 2048
+        range 512 8192
+        help
+            The read_form() rules are read into a buffer of this size, or of
+            BLE_SETUP_BODY_MAX if that is larger, and cut off beyond it. Rules
+            run longer than the settings they describe.
+
     config BLE_SETUP_BOND
         bool "Keep bonds with paired centrals"
         default n

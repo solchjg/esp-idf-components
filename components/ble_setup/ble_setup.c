@@ -47,8 +47,12 @@ static bool running;
 static uint8_t own_addr_type;
 static uint16_t conn = BLE_HS_CONN_HANDLE_NONE;
 static uint16_t result_handle;
+// The read buffer holds a settings read or the field rules, whichever is larger.
+#define READ_MAX (CONFIG_BLE_SETUP_FORM_MAX > CONFIG_BLE_SETUP_BODY_MAX ? CONFIG_BLE_SETUP_FORM_MAX \
+                                                                 : CONFIG_BLE_SETUP_BODY_MAX)
+
 static char *stage_buf;  // CONFIG_BLE_SETUP_BODY_MAX + 1
-static char *read_buf;   // CONFIG_BLE_SETUP_BODY_MAX
+static char *read_buf;   // READ_MAX
 static bs_session_t session;
 static char result[RESULT_MAX] = "none";
 static SemaphoreHandle_t host_stopped;
@@ -154,7 +158,9 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
         if (ble_uuid_cmp(uuid, &settings_uuid.u) == 0) {
             size_t (*src)(char *, size_t) = session.read_form ? cfg->read_form
                                                               : cfg->read_settings;
-            size_t all = src ? src(read_buf, CONFIG_BLE_SETUP_BODY_MAX) : 0;
+            size_t all = src ? src(read_buf, session.read_form ? READ_MAX
+                                                               : CONFIG_BLE_SETUP_BODY_MAX)
+                             : 0;
             const char *start;
             size_t n = bs_page(read_buf, all, session.read_off, &start);
             return append(ctxt->om, start, n);
@@ -399,7 +405,7 @@ esp_err_t ble_setup_start(const ble_setup_config_t *c)
         return ESP_ERR_NO_MEM;
     }
     stage_buf = malloc(CONFIG_BLE_SETUP_BODY_MAX + 1);
-    read_buf = malloc(CONFIG_BLE_SETUP_BODY_MAX);
+    read_buf = malloc(READ_MAX);
     if (!stage_buf || !read_buf) {
         release();
         return ESP_ERR_NO_MEM;
