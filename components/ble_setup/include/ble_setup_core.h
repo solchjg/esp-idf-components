@@ -35,6 +35,7 @@ typedef enum {
     BS_CTRL_READ,     // `read=<offset>`: later reads start at offset
     BS_CTRL_HIST,     // `hist=<n>`: later `history` reads start at line n
     BS_CTRL_RANGE,    // `range=<text>`: the app's filter for `history`
+    BS_CTRL_FORGET,   // `forget`: erase every bond
     BS_CTRL_FORM,     // `form=<offset>`: later `settings` reads page the form description
 } bs_ctrl_t;
 

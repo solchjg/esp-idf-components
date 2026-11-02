@@ -92,7 +92,8 @@ def test_reset_clears_body_read_page_and_history_line(core):
     ("hist=0", "4:0"), ("hist=10700", "4:10700"), ("hist=", "0:7"), ("hist=x", "0:7"),
     ("hist=1234567890", "0:7"), ("range=", "5:6"), ("range=2026-10-01,2026-10-31", "5:6"),
     ("range", "0:7"), ("Range=,", "0:7"),
-    ("form=0", "6:0"), ("form=512", "6:512"), ("form=", "0:7"), ("form=x", "0:7"),
+    ("forget", "6:7"), ("forget ", "0:7"), ("Forget", "0:7"),
+    ("form=0", "7:0"), ("form=512", "7:512"), ("form=", "0:7"), ("form=x", "0:7"),
     ("Form=0", "0:7"),
 ])
 def test_control_commands(core, value, expected):
@@ -103,7 +104,7 @@ def test_form_pages_until_read_or_reset(core):
     # The page reads the rules with form=, then the settings again with read=;
     # a new connection (reset) starts on the settings.
     assert core(64, "F", "c:form=512", "F", "c:read=0", "F", "c:form=0", "r", "F") == \
-        ["0:0", "6:512", "1:512", "3:0", "0:0", "6:0", "0:0:0", "0:0"]
+        ["0:0", "7:512", "1:512", "3:0", "0:0", "7:0", "0:0:0", "0:0"]
 
 
 @pytest.mark.parametrize("off,expected", [
