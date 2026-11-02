@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #include "driver/i2c_master.h"
+#include "esp_rom_sys.h"
 #include "esp_try.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -31,9 +32,18 @@ static int bus_write16(void *ctx, uint8_t reg, uint16_t value)
     return i2c_master_transmit(s.dev, b, sizeof b, XFER_TIMEOUT_MS);
 }
 
+// Whole ticks asleep, the rest busy: a conversion's 9 ms at 128 SPS is shorter
+// than a 10 ms tick, and the caller may be timing a supply that is on meanwhile.
 static void bus_delay_ms(void *ctx, uint32_t ms)
 {
-    vTaskDelay(pdMS_TO_TICKS(ms) ? pdMS_TO_TICKS(ms) : 1);
+    uint32_t ticks = ms / portTICK_PERIOD_MS;
+    if (ticks) {
+        vTaskDelay(ticks);
+    }
+    uint32_t rest = ms - ticks * portTICK_PERIOD_MS;
+    if (rest) {
+        esp_rom_delay_us(rest * 1000);
+    }
 }
 
 static const ads1115_bus_t bus = {bus_read16, bus_write16, bus_delay_ms, NULL};
