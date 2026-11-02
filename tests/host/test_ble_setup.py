@@ -10,7 +10,8 @@ HARNESS = r"""
 
 // argv: cap, then commands: a:<text> append, A:<n> append n 'x', r reset,
 // p:<off> page of a 1300-byte "0123456789..." text, c:<text> control, k:<n> passkey,
-// F which source `settings` reads page (form?) and from where
+// F which source `settings` reads page (form?) and from where,
+// S:<12 hex digits> an address through bs_addr_static, K:<stored 0|1>:<bonds> bs_addr_keep
 int main(int argc, char **argv)
 {
     size_t cap = (size_t)atoi(argv[1]);
@@ -47,6 +48,15 @@ int main(int argc, char **argv)
             printf("%d:%u;", (int)c, (unsigned)arg);
         } else if (a[0] == 'F') {
             printf("%d:%u;", (int)s.read_form, (unsigned)s.read_off);
+        } else if (a[0] == 'S') {
+            uint8_t addr[6];
+            for (int j = 0; j < 6; j++) sscanf(a + 2 + 2 * j, "%2hhx", &addr[j]);
+            int ok = bs_addr_static(addr);
+            printf("%d:", ok);
+            for (int j = 0; j < 6; j++) printf("%02x", addr[j]);
+            printf(";");
+        } else if (a[0] == 'K') {
+            printf("%d;", (int)bs_addr_keep(a[2] == '1', atoi(a + 4)));
         } else if (a[0] == 'k') {
             char out[7];
             bs_passkey_text((uint32_t)atol(a + 2), out);
@@ -119,3 +129,28 @@ def test_read_pages_are_at_most_512_bytes(core, off, expected):
                                      (1000000, "000000")])
 def test_passkey_text(core, pk, text):
     assert core(16, f"k:{pk}") == [text]
+
+
+# The address (bs_addr_static): random bytes, little-endian, become a static
+# random address (top two bits of byte 5 set); the 46 random bits all 0 or all 1
+# are refused so a new draw is taken.
+@pytest.mark.parametrize("raw,expected", [
+    ("112233445566", "1:1122334455e6"),
+    ("000000000000", "0:0000000000c0"),
+    ("0000000000c0", "0:0000000000c0"),
+    ("ffffffffff3f", "0:ffffffffffff"),
+    ("010000000000", "1:0100000000c0"),
+    ("0000000000c1", "1:0000000000c1"),
+    ("fffffffffffe", "1:fffffffffffe"),
+])
+def test_static_address(core, raw, expected):
+    assert core(16, f"S:{raw}") == [expected]
+
+
+# The stored address is used again only while a bond is held: with none (an
+# erased flash, a factory reset, a forget) a phone's old pairing must not match.
+@pytest.mark.parametrize("stored,bonds,keep", [
+    (1, 1, 1), (1, 3, 1), (1, 0, 0), (0, 0, 0), (0, 2, 0),
+])
+def test_address_kept_only_while_bonded(core, stored, bonds, keep):
+    assert core(16, f"K:{stored}:{bonds}") == [str(keep)]

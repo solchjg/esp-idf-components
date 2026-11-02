@@ -87,3 +87,20 @@ void bs_passkey_text(uint32_t passkey, char out[7])
     }
     out[6] = '\0';
 }
+
+bool bs_addr_static(uint8_t addr[6])
+{
+    addr[5] |= 0xC0;  // the two top bits of a static random address
+    bool zeros = true, ones = addr[5] == 0xFF;
+    for (int i = 0; i < 5; i++) {
+        zeros = zeros && addr[i] == 0;
+        ones = ones && addr[i] == 0xFF;
+    }
+    zeros = zeros && (addr[5] & 0x3F) == 0;
+    return !zeros && !ones;
+}
+
+bool bs_addr_keep(bool stored, int bonds)
+{
+    return stored && bonds > 0;
+}

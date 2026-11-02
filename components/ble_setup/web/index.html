@@ -19,12 +19,18 @@
   #info { color:var(--muted); font-size:.9rem; margin:8px 0 16px; overflow-wrap:anywhere; }
   label { display:block; margin:12px 0 4px; font-weight:600; font-size:.9rem; }
   input, select { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--field); color:var(--fg); }
-  .hint { color:var(--muted); font-size:.8rem; }
+  .hint { color:var(--muted); font-size:.8rem; margin:4px 0 0; }
   label[data-req="1"]::after { content:" *"; color:var(--bad); }
   input:user-invalid, select:user-invalid { border-color:var(--bad); }
   #status { margin-top:16px; min-height:1.5em; }
   .bad { color:var(--bad); } .good { color:var(--good); }
   h2 { font-size:1.1rem; margin:28px 0 0; }
+  #fields h2 { padding-top:12px; border-top:1px solid var(--line); }
+  #fields h2:first-child { border-top:0; padding-top:0; margin-top:8px; }
+  p.intro { color:var(--muted); font-size:.9rem; margin:8px 0 0; }
+  .unit { display:flex; gap:8px; align-items:center; } .unit input { flex:1; } .unit span { color:var(--muted); white-space:nowrap; }
+  .extras { margin-top:12px; } label.check { font-weight:400; display:flex; gap:8px; align-items:flex-start; margin:6px 0; }
+  label.check input { width:auto; margin-top:5px; }
   .dates { display:flex; gap:12px; flex-wrap:wrap; } .dates > div { flex:1 1 140px; }
 </style>
 </head>
@@ -60,7 +66,9 @@
 // "invalid=<field>". Reads of `settings` come in 512-byte pages chosen with
 // `control` "read=<offset>". Secrets are never read: "<name>_set=1" says one is
 // stored, and leaving its box empty keeps it. `control` "form=<offset>" pages
-// the device's rules for each field instead (refused by a device without them).
+// the device's rules for each field instead (refused by a device without them):
+// checks, labels, choices, units and sections (ble_setup.h read_form), so the
+// page draws the same form as the device's WiFi portal.
 // History (optional): `info` carries "history=<CSV header>" when the device
 // keeps one. "range=<from>,<to>" (YYYY-MM-DD, either empty) sets the filter;
 // "hist=<n>" chooses the first line the next `history` read returns, as many
@@ -99,8 +107,9 @@ async function readRules() {
   }
 }
 
-const CHECKS = ['minlength', 'maxlength', 'min', 'max', 'pattern'];
-const fieldsEl = () => [...$('fields').querySelectorAll('input, select')];
+// Attributes a rule sets on its input as they stand.
+const ATTRS = ['minlength', 'maxlength', 'min', 'max', 'step', 'pattern', 'placeholder', 'inputmode'];
+const fieldsEl = () => [...$('fields').querySelectorAll('input:not([data-extra]), select')];
 
 // A field of a group is required once any field of its group is filled.
 function updateGroups() {
@@ -116,50 +125,103 @@ function updateGroups() {
   }
 }
 
+// A field with `extras`: the choice is the first item of its value, each extra
+// a checkbox; the value sent is the choice and the ticked extras, comma separated.
+function valueOf(input) {
+  if (!input.dataset.extras) return input.value;
+  const ticked = [...$('fields').querySelectorAll(`input[data-extra="${input.name}"]`)]
+    .filter((c) => c.checked).map((c) => c.value);
+  return [input.value, ...ticked].join(',');
+}
+
 function render(body) {
   const params = new URLSearchParams(body);
   const box = $('fields');
   box.replaceChildren();
   secrets = {};
+  let tail = [];  // what closes the current section (a field's extras)
+  const closeSection = () => { box.append(...tail); tail = []; };
+  const para = (cls, text) => {
+    const p = document.createElement('p');
+    p.className = cls; p.textContent = text;
+    return p;
+  };
   const add = (name, value, secret) => {
     const r = new URLSearchParams(rules.get(name) || '');
+    if (r.has('section')) {
+      closeSection();
+      const h = document.createElement('h2');
+      h.textContent = r.get('section');
+      box.append(h);
+    }
+    if (r.has('intro')) box.append(para('intro', r.get('intro')));
     const label = document.createElement('label');
     label.textContent = r.get('label') || name;
     label.htmlFor = `f-${name}`;
     let input;
+    const items = (value || '').split(',').map((v) => v.trim());
     if (r.has('options')) {
       input = document.createElement('select');
       const opts = r.get('options').split(',');
-      if (!r.has('required') || !opts.includes(value)) opts.unshift('');
-      for (const o of opts) input.add(new Option(o || '–', o));
+      const names = (r.get('labels') || '').split('|');
+      const shown = r.has('extras') ? items[0] : value;
+      // An empty choice only where the rules list one (or the stored value is none of them).
+      if (!opts.includes(shown) && !opts.includes('')) opts.unshift('');
+      opts.forEach((o, i) => input.add(new Option(names[i] || o || '-', o)));
     } else {
       input = document.createElement('input');
       input.autocomplete = 'off';
+      input.setAttribute('autocapitalize', 'none');
+      input.spellcheck = false;
       if (r.has('type')) input.type = r.get('type');
-      for (const c of CHECKS) if (r.has(c)) input.setAttribute(c, r.get(c));
     }
+    for (const a of ATTRS) if (r.has(a)) input.setAttribute(a, r.get(a));
     input.id = `f-${name}`; input.name = name;
     if (secret) {
       input.type = 'password';
       if (secret === 'stored') input.placeholder = 'stored; leave empty to keep it';
     }
-    input.value = draft.has(name) ? draft.get(name) : value;
+    const typed = draft.has(name) ? draft.get(name) : value;
+    input.value = r.has('extras') ? typed.split(',')[0].trim() : typed;
     // A stored secret left empty keeps the stored one, so it is never required.
     input.required = r.has('required') && secret !== 'stored';
     label.dataset.req = input.required ? '1' : '';
     if (r.has('group')) input.dataset.group = r.get('group');
     if (r.has('need')) input.dataset.need = '1';
-    input.addEventListener('input', () => {
-      draft.set(name, input.value);
+    const changed = () => {
+      draft.set(name, valueOf(input));
       // The device's verdict was on the old values (a rule may span fields).
       for (const el of fieldsEl()) el.setCustomValidity('');
       updateGroups();
-    });
-    box.append(label, input);
-    if (r.has('hint')) {
-      const hint = document.createElement('div');
-      hint.className = 'hint'; hint.textContent = r.get('hint');
-      box.append(hint);
+    };
+    input.addEventListener('input', changed);
+    let row = input;
+    if (r.has('unit')) {
+      row = document.createElement('div');
+      row.className = 'unit';
+      const u = document.createElement('span');
+      u.textContent = r.get('unit');
+      row.append(input, u);
+    }
+    box.append(label, row);
+    if (r.has('hint')) box.append(para('hint', r.get('hint')));
+    if (r.has('extras')) {
+      input.dataset.extras = '1';
+      const on = new Set(typed.split(',').slice(1).map((v) => v.trim()));
+      const names = (r.get('extra_labels') || '').split('|');
+      const block = document.createElement('div');
+      block.className = 'extras';
+      if (r.has('extras_intro')) block.append(para('intro', r.get('extras_intro')));
+      r.get('extras').split(',').forEach((x, i) => {
+        const l = document.createElement('label');
+        l.className = 'check';
+        const c = document.createElement('input');
+        c.type = 'checkbox'; c.value = x; c.checked = on.has(x); c.dataset.extra = name;
+        c.addEventListener('change', changed);
+        l.append(c, ` ${names[i] || x}`);
+        block.append(l);
+      });
+      tail.push(block);
     }
   };
   // A secret's box goes where its "<name>_set" flag stands in the body.
@@ -172,6 +234,7 @@ function render(body) {
     }
     add(k, v, false);
   }
+  closeSection();
   updateGroups();
   $('form').hidden = false;
 }
@@ -252,7 +315,7 @@ async function save(ev) {
   for (const input of fieldsEl()) {
     // An empty box for a stored secret keeps it: the field is left out.
     if (secrets[input.name] === 'stored' && input.value === '') continue;
-    params.append(input.name, input.value);
+    params.append(input.name, valueOf(input));
   }
   const bytes = enc.encode(params.toString());
   status('Saving…');
@@ -312,9 +375,9 @@ $('done').addEventListener('click', () => chars.control.writeValueWithResponse(e
   .then(() => status('Finished. The device turns Bluetooth off.', 'good'))
   .catch((e) => status(String(e.message || e), 'bad')));
 $('forget').addEventListener('click', () => {
-  if (!confirm('The device forgets every phone paired with it, this one too. Each phone then needs the device removed from its Bluetooth settings before it pairs again.')) return;
+  if (!confirm('The device forgets every phone paired with it, this one too. Each phone pairs again, with a new code, the next time Bluetooth setup opens.')) return;
   chars.control.writeValueWithResponse(enc.encode('forget'))
-    .then(() => status(`${device.name} has forgotten all phones. Remove it from this phone's Bluetooth devices too.`, 'good'))
+    .then(() => status(`${device.name} has forgotten all phones. Next time its Bluetooth setup opens it shows up as a new device; you can remove the old entry from this phone's Bluetooth devices.`, 'good'))
     .catch((e) => status(String(e.message || e), 'bad'));
 });
 if (!navigator.bluetooth) status('This browser has no Web Bluetooth. Use Chrome or Edge, or Bluefy on iPhone.', 'bad');

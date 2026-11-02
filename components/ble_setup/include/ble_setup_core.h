@@ -49,3 +49,15 @@ size_t bs_page(const char *all, size_t all_len, uint32_t off, const char **start
 
 // A passkey (0 – 999999) as six digits, zero-padded.
 void bs_passkey_text(uint32_t passkey, char out[7]);
+
+// The device's address (little-endian, byte 5 the most significant): a static
+// random address, kept while the device holds a bond and replaced whenever it
+// holds none, so a central that kept a pairing the device no longer has (an
+// erased flash, a factory reset, a `forget`) meets a new device and pairs afresh instead of presenting a stale key.
+// bs_addr_static() turns random bytes into a static random address in place;
+// false when the 46 random bits are all 0 or all 1 (draw again).
+bool bs_addr_static(uint8_t addr[6]);
+
+// Whether the stored address (stored: one was read and is valid) is used
+// again: only while a bond is held. Otherwise a new one is drawn and stored.
+bool bs_addr_keep(bool stored, int bonds);

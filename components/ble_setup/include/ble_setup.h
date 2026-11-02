@@ -4,7 +4,10 @@
 // central at a time. The app decides when it runs (start/stop) and what the
 // settings mean (the callbacks). The component stores nothing but, with
 // CONFIG_BLE_SETUP_BOND, the bonds NimBLE keeps (CONFIG_BT_NIMBLE_NVS_PERSIST
-// for them to outlive a restart).
+// for them to outlive a restart), and its own static random address (NVS
+// namespace "ble_setup"), replaced whenever it holds no bond: after an erased
+// flash, a factory reset or a `forget`, a phone that kept its half of an
+// earlier pairing meets a new device and pairs afresh.
 // Needs CONFIG_BT_NIMBLE_GATT_CLIENT=y (and so ROLE_CENTRAL=y): a phone's
 // indications on connecting must be confirmed, or it drops the link at 30 s.
 //
@@ -47,10 +50,17 @@ typedef struct {
     // A form body with one `<name>=<rules>` per field read_settings shows (a
     // secret by its name, without "_set"); <rules> is itself a form body:
     //   label=<text>  required=1  type=email|time|number|password
-    //   minlength= maxlength= min= max= pattern=<regex, whole value>
-    //   options=<a,b>  (a choice; empty allowed unless required)
+    //   minlength= maxlength= min= max= step= pattern=<regex, whole value>
+    //   placeholder=<text>  inputmode=<mode>  unit=<text after the box>
+    //   options=<a,b>  (a choice; a leading empty item, ",a,b", allows none)
+    //   labels=<text of a|text of b>  (what each option shows)
+    //   extras=<x,y>  extra_labels=<text|text>  extras_intro=<text>
+    //     (checkboxes at the end of the section; the value is the choice
+    //     then the ticked extras, comma separated)
     //   group=<g>  need=1  (required once any field of group g is filled)
-    //   hint=<text>
+    //   section=<heading>  (a new section starts at this field)
+    //   intro=<text>  (a paragraph before this field)  hint=<text>  (after it)
+    // Fields show in read_settings order, so the page can match a portal form.
     // The device still validates every write; the rules only spare a round trip.
     size_t (*read_form)(char *out, size_t cap);
     // The staged body (terminated) on "apply": validate it, write the answer
