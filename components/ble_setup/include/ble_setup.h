@@ -2,7 +2,11 @@
 // URL-encoded form body (the portal's format), over a link paired by LE Secure
 // Connections with a passkey the app shows. NimBLE, peripheral role only, one
 // central at a time. The app decides when it runs (start/stop) and what the
-// settings mean (the callbacks); the component never stores anything.
+// settings mean (the callbacks). The component stores nothing but, with
+// CONFIG_BLE_SETUP_BOND, the bonds NimBLE keeps (CONFIG_BT_NIMBLE_NVS_PERSIST
+// for them to outlive a restart).
+// Needs CONFIG_BT_NIMBLE_GATT_CLIENT=y (and so ROLE_CENTRAL=y): a phone's
+// indications on connecting must be confirmed, or it drops the link at 30 s.
 //
 // Service 6e0a0001-7d3b-4c2a-9f1e-54445333424c, characteristics 6e0a0002..06:
 //   info      read, open                 read_info()
@@ -10,7 +14,8 @@
 //                                        read: a 512-byte page of read_settings()
 //   result    read/notify, MITM-paired   what on_apply() answered ("none" first)
 //   control   write, MITM-paired         "apply", "done", "read=<offset>",
-//                                        "hist=<n>", "range=<text>"
+//                                        "hist=<n>", "range=<text>", "forget"
+//                                        (erase every bond, this central's too)
 //   history   read, MITM-paired          read_history() from line n (0 on connecting)
 #pragma once
 
@@ -26,6 +31,7 @@ typedef enum {
     BLE_SETUP_EV_PAIRED,       // link encrypted with an authenticated key
     BLE_SETUP_EV_PAIR_FAILED,  // pairing or encryption failed
     BLE_SETUP_EV_DONE,         // `control` written with "done"
+    BLE_SETUP_EV_FORGOTTEN,    // `control` "forget": every bond erased
 } ble_setup_event_t;
 
 // Every callback runs in the NimBLE host task; keep them short and post to
@@ -59,3 +65,7 @@ esp_err_t ble_setup_start(const ble_setup_config_t *cfg);
 esp_err_t ble_setup_stop(void);
 
 bool ble_setup_running(void);
+
+// Forget every bonded central (a factory reset). Works whether or not BLE
+// is running.
+esp_err_t ble_setup_forget(void);

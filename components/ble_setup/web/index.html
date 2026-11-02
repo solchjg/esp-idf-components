@@ -33,6 +33,7 @@
   <div class="row">
     <button id="connect">Connect to device</button>
     <button id="done" class="quiet" disabled>Done</button>
+    <button id="forget" class="quiet" disabled>Forget all phones</button>
   </div>
   <div id="info"></div>
   <form id="form" hidden>
@@ -110,25 +111,69 @@ function render(body) {
   $('form').hidden = false;
 }
 
-async function connect() {
-  status('Choose the device in the list…');
-  device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
-  device.addEventListener('gattserverdisconnected', () => {
-    $('done').disabled = true; $('save').disabled = true; $('hdl').disabled = true;
-    if (!$('status').className) status('Disconnected.');
-  });
-  const server = await device.gatt.connect();
-  const svc = await server.getPrimaryService(SVC);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// A step that needs no person bounded in time, so a link that went quiet
+// fails here instead of leaving the page waiting for ever.
+// Generous: a phone may pair as the link comes up, and the person types the
+// code meanwhile, holding up these steps (pairing itself times out at 30 s).
+const STEP_MS = 45000;
+function bounded(p, ms, what) {
+  let t;
+  return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what}: no answer`)), ms); })])
+    .finally(() => clearTimeout(t));
+}
+
+function linkDown() {
+  $('done').disabled = true; $('save').disabled = true; $('hdl').disabled = true; $('forget').disabled = true;
+  if (!busy && !$('status').className) status('Disconnected.');
+}
+
+async function openLink() {
+  if (device.gatt.connected) device.gatt.disconnect();  // a link left from before
+  const server = await bounded(device.gatt.connect(), STEP_MS, 'connect');
+  const svc = await bounded(server.getPrimaryService(SVC), STEP_MS, 'services');
+  chars = {};
   for (const [k, u] of Object.entries({ info: INFO, settings: SETTINGS, result: RESULT, control: CONTROL })) {
-    chars[k] = await svc.getCharacteristic(u);
+    chars[k] = await bounded(svc.getCharacteristic(u), STEP_MS, 'services');
   }
-  info = new URLSearchParams(dec.decode(await chars.info.readValue()));
+  info = new URLSearchParams(dec.decode(await bounded(chars.info.readValue(), STEP_MS, 'info')));
   $('info').textContent = [...info].filter(([k]) => k !== 'history')
     .map(([k, v]) => `${k}: ${v}`).join(' · ');
-  if (info.has('history')) chars.history = await svc.getCharacteristic(HISTORY);
+  if (info.has('history')) chars.history = await bounded(svc.getCharacteristic(HISTORY), STEP_MS, 'services');
   status('Pairing: type the code shown on the device…');
   render(await readAll());  // the first protected read starts pairing
-  $('done').disabled = false; $('save').disabled = false; $('hdl').disabled = false;
+}
+
+let busy = false;
+async function connect() {
+  status('Choose the device in the list…');
+  const picked = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
+  if (picked !== device) {
+    if (device && device.gatt.connected) device.gatt.disconnect();
+    device = picked;
+    device.addEventListener('gattserverdisconnected', linkDown);
+  }
+  busy = true;
+  try {
+    // A phone that kept a key from an earlier pairing is disconnected by the
+    // device, and forgets the key; the second try pairs afresh.
+    for (let tries = 1; ; tries++) {
+      try {
+        status('Connecting…');
+        await openLink();
+        break;
+      } catch (e) {
+        if (device.gatt.connected) device.gatt.disconnect();
+        if (tries === 2) {
+          throw new Error(`${e.message || e}. Try again; if it keeps failing, remove ${device.name} from the phone's Bluetooth devices first.`);
+        }
+        await sleep(1500);
+      }
+    }
+  } finally {
+    busy = false;
+  }
+  $('done').disabled = false; $('save').disabled = false; $('hdl').disabled = false; $('forget').disabled = false;
   $('hist').hidden = !chars.history;
   status(`Connected to ${device.name}.`);
 }
@@ -185,6 +230,12 @@ $('hdl').addEventListener('click', () => downloadHistory().catch((e) => status(S
 $('done').addEventListener('click', () => chars.control.writeValueWithResponse(enc.encode('done'))
   .then(() => status('Finished. The device turns Bluetooth off.', 'good'))
   .catch((e) => status(String(e.message || e), 'bad')));
+$('forget').addEventListener('click', () => {
+  if (!confirm('The device forgets every phone paired with it, this one too. Each phone then needs the device removed from its Bluetooth settings before it pairs again.')) return;
+  chars.control.writeValueWithResponse(enc.encode('forget'))
+    .then(() => status(`${device.name} has forgotten all phones. Remove it from this phone's Bluetooth devices too.`, 'good'))
+    .catch((e) => status(String(e.message || e), 'bad'));
+});
 if (!navigator.bluetooth) status('This browser has no Web Bluetooth. Use Chrome or Edge, or Bluefy on iPhone.', 'bad');
 </script>
 </body>

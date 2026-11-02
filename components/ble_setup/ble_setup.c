@@ -13,15 +13,24 @@
 #include "host/ble_hs.h"
 #include "host/util/util.h"
 #include "nimble/nimble_port.h"
+#include "nvs.h"
 #include "nimble/nimble_port_freertos.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
+
+#if !CONFIG_BT_NIMBLE_GATT_CLIENT
+// A phone sends an indication (Service Changed) on connecting; only the GATT
+// client confirms it, and an unconfirmed one makes the phone drop the link
+// after 30 s. It needs CONFIG_BT_NIMBLE_ROLE_CENTRAL=y.
+#error "ble_setup needs CONFIG_BT_NIMBLE_GATT_CLIENT=y"
+#endif
 
 static const char *TAG = "ble_setup";
 
 void ble_store_config_init(void);  // NimBLE's RAM/NVS key store; no public header
 
 #define RESULT_MAX 64
+#define BOND_NAMESPACE "nimble_bond"  // NimBLE's NVS store (CONFIG_BT_NIMBLE_NVS_PERSIST)
 
 // 6e0a00xx-7d3b-4c2a-9f1e-54445333424c, little-endian as NimBLE stores it.
 #define BS_UUID(x) BLE_UUID128_INIT(0x4c, 0x42, 0x33, 0x53, 0x44, 0x54, 0x1e, 0x9f, \
@@ -43,13 +52,81 @@ static char *read_buf;   // CONFIG_BLE_SETUP_BODY_MAX
 static bs_session_t session;
 static char result[RESULT_MAX] = "none";
 static SemaphoreHandle_t host_stopped;
+static ble_store_read_fn *store_read;  // the RAM store's own reader
+static struct ble_npl_event drop_ev;   // drops the link of a central with a stale key
+static struct ble_npl_event forget_ev; // erases every bond, after the write is answered
+static bool stale_key;                 // this link's central presented one
+static bool pairing;                   // a pairing reached its passkey step on this link
+static struct ble_npl_callout sec_co;  // the delayed Security Request
+
+// How long a central gets to start pairing by itself before it is asked.
+#define SEC_REQ_DELAY_MS 3000
 
 static void advertise(void);
+
+// A central that starts encryption with a key it remembers but this device
+// does not hold (no bonds kept, CONFIG_BLE_SETUP_BOND off, or the bond was
+// forgotten here, e.g. by a factory reset): NimBLE looks the key
+// up (our security record for that peer), finds none and answers with a
+// negative reply, but leaves the link up (older NimBLE even waits 30 s for an
+// encryption change), so the central sits on an unencrypted link whose reads
+// it cannot get answered and never pairs again by itself. Drop the link at once
+// instead, so the central learns the key is gone (Android then forgets it) and
+// its next connection pairs afresh; the setup page reconnects once by itself.
+// A lookup after a pairing has started on the link (the passkey step) is
+// NimBLE's own bookkeeping, not a restore, and is left alone.
+// Runs in the host task with the host lock held, so the drop is posted.
+static int read_store(int obj_type, const union ble_store_key *key, union ble_store_value *val)
+{
+    int rc = store_read(obj_type, key, val);
+    if (obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC || obj_type == BLE_STORE_OBJ_TYPE_PEER_SEC) {
+        ESP_LOGI(TAG, "store read %s sec: %d", obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC ? "our" : "peer", rc);
+    }
+    if (rc == BLE_HS_ENOENT && obj_type == BLE_STORE_OBJ_TYPE_OUR_SEC &&
+        conn != BLE_HS_CONN_HANDLE_NONE && !pairing && !stale_key) {
+        stale_key = true;
+        ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &drop_ev);
+    }
+    return rc;
+}
+
+static void drop_stale(struct ble_npl_event *ev)
+{
+    if (conn != BLE_HS_CONN_HANDLE_NONE) {
+        ESP_LOGW(TAG, "central has a key from an earlier pairing: disconnecting");
+        ble_gap_terminate(conn, BLE_ERR_AUTH_FAIL);
+    }
+}
+
+// Ask for pairing (Security Request) only when the central has not started
+// it by itself: some stacks (BlueZ under Chrome) never pair on an
+// Insufficient Authentication error, while Android, after an earlier
+// pairing, leaves a Security Request sent at connection unanswered and both
+// sides time out after 30 s. Android pairs on the page's first protected read.
+static void request_security(struct ble_npl_event *ev)
+{
+    struct ble_gap_conn_desc desc;
+    if (conn == BLE_HS_CONN_HANDLE_NONE || pairing || ble_gap_conn_find(conn, &desc) != 0 ||
+        desc.sec_state.encrypted) {
+        return;
+    }
+    int sec = ble_gap_security_initiate(conn);
+    ESP_LOGI(TAG, "security request: %d", sec);
+}
 
 static void emit(ble_setup_event_t ev)
 {
     if (cfg->on_event) {
         cfg->on_event(ev);
+    }
+}
+
+static void forget_all(struct ble_npl_event *ev)
+{
+    int rc = ble_store_clear();
+    ESP_LOGI(TAG, "bonds erased: %d", rc);
+    if (rc == 0) {
+        emit(BLE_SETUP_EV_FORGOTTEN);
     }
 }
 
@@ -119,6 +196,9 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
         case BS_CTRL_DONE:
             emit(BLE_SETUP_EV_DONE);
             return 0;
+        case BS_CTRL_FORGET:
+            ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &forget_ev);
+            return 0;
         case BS_CTRL_READ:
             session.read_off = off;
             return 0;
@@ -171,19 +251,16 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         }
         conn = event->connect.conn_handle;
         ESP_LOGI(TAG, "connected");
+        stale_key = pairing = false;
         bs_reset(&session);
         strcpy(result, "none");
         emit(BLE_SETUP_EV_CONNECTED);
-        // Ask the central to pair now (Security Request): some stacks (BlueZ under
-        // Chrome) never start pairing on an Insufficient Authentication error.
-        int sec = ble_gap_security_initiate(conn);
-        if (sec != 0) {
-            ESP_LOGW(TAG, "security request failed: %d", sec);
-        }
+        ble_npl_callout_reset(&sec_co, ble_npl_time_ms_to_ticks32(SEC_REQ_DELAY_MS));
         return 0;
     case BLE_GAP_EVENT_DISCONNECT:
         ESP_LOGI(TAG, "disconnected: reason 0x%x", event->disconnect.reason);
         conn = BLE_HS_CONN_HANDLE_NONE;
+        ble_npl_callout_stop(&sec_co);
         bs_reset(&session);
         passkey_down();
         emit(BLE_SETUP_EV_DISCONNECTED);
@@ -195,6 +272,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         }
         return 0;
     case BLE_GAP_EVENT_ENC_CHANGE: {
+        ESP_LOGI(TAG, "encryption change: status 0x%x", event->enc_change.status);
         passkey_down();
         struct ble_gap_conn_desc desc = {0};
         bool ok = event->enc_change.status == 0 &&
@@ -204,11 +282,15 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             ESP_LOGW(TAG, "pairing failed: status 0x%x encrypted %d authenticated %d",
                      event->enc_change.status, desc.sec_state.encrypted, desc.sec_state.authenticated);
         }
+        if (!ok && stale_key) {
+            return 0;  // a stale key, not a pairing: drop_stale() ends the link
+        }
         emit(ok ? BLE_SETUP_EV_PAIRED : BLE_SETUP_EV_PAIR_FAILED);
         return 0;
     }
     case BLE_GAP_EVENT_PASSKEY_ACTION: {
         ESP_LOGI(TAG, "passkey action %d", event->passkey.params.action);  // never the passkey
+        pairing = true;
         if (event->passkey.params.action != BLE_SM_IOACT_DISP) {
             return 0;  // DisplayOnly: no other action is negotiated
         }
@@ -223,7 +305,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         return 0;
     }
     case BLE_GAP_EVENT_REPEAT_PAIRING: {
-        // No bonds are kept; a central that remembers one pairs afresh.
+        // The central forgot its bond and pairs again: replace ours.
         struct ble_gap_conn_desc desc;
         if (ble_gap_conn_find(event->repeat_pairing.conn_handle, &desc) == 0) {
             ble_store_util_delete_peer(&desc.peer_id_addr);
@@ -231,6 +313,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         return BLE_GAP_REPEAT_PAIRING_RETRY;
     }
     default:
+        ESP_LOGI(TAG, "gap event %d", event->type);
         return 0;
     }
 }
@@ -328,9 +411,18 @@ esp_err_t ble_setup_start(const ble_setup_config_t *c)
     ble_hs_cfg.sm_io_cap = BLE_SM_IO_CAP_DISP_ONLY;
     ble_hs_cfg.sm_sc = 1;
     ble_hs_cfg.sm_mitm = 1;
+#if CONFIG_BLE_SETUP_BOND
+    // Android keeps its half of a pairing whether or not the peripheral asks
+    // for bonding, and then stalls on the next connection; keeping ours lets
+    // it reconnect by encryption alone.
+    ble_hs_cfg.sm_bonding = 1;
+    ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+#else
     ble_hs_cfg.sm_bonding = 0;
     ble_hs_cfg.sm_our_key_dist = 0;
     ble_hs_cfg.sm_their_key_dist = 0;
+#endif
 
     ble_svc_gap_init();
     ble_svc_gatt_init();
@@ -348,6 +440,11 @@ esp_err_t ble_setup_start(const ble_setup_config_t *c)
         return ESP_FAIL;
     }
     ble_store_config_init();
+    store_read = ble_hs_cfg.store_read_cb;
+    ble_hs_cfg.store_read_cb = read_store;
+    ble_npl_event_init(&drop_ev, drop_stale, NULL);
+    ble_npl_event_init(&forget_ev, forget_all, NULL);
+    ble_npl_callout_init(&sec_co, nimble_port_get_dflt_eventq(), request_security, NULL);
     running = true;
     xSemaphoreTake(host_stopped, 0);
     nimble_port_freertos_init(host_task);
@@ -363,6 +460,12 @@ esp_err_t ble_setup_stop(void)
     if (nimble_port_stop() == 0) {
         xSemaphoreTake(host_stopped, pdMS_TO_TICKS(2000));
     }
+    ble_npl_callout_stop(&sec_co);
+    ble_npl_callout_deinit(&sec_co);
+    ble_npl_eventq_remove(nimble_port_get_dflt_eventq(), &drop_ev);
+    ble_npl_event_deinit(&drop_ev);
+    ble_npl_eventq_remove(nimble_port_get_dflt_eventq(), &forget_ev);
+    ble_npl_event_deinit(&forget_ev);
     esp_err_t err = nimble_port_deinit();
     conn = BLE_HS_CONN_HANDLE_NONE;
     release();
@@ -372,4 +475,25 @@ esp_err_t ble_setup_stop(void)
 bool ble_setup_running(void)
 {
     return running;
+}
+
+esp_err_t ble_setup_forget(void)
+{
+    if (running) {
+        return ble_store_clear() == 0 ? ESP_OK : ESP_FAIL;
+    }
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(BOND_NAMESPACE, NVS_READWRITE, &h);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK;  // never bonded
+    }
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_erase_all(h);
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
+    nvs_close(h);
+    return err;
 }

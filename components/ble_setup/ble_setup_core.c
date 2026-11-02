@@ -43,6 +43,9 @@ bs_ctrl_t bs_control(const char *v, size_t len, uint32_t *arg)
     if (is(v, len, "done")) {
         return BS_CTRL_DONE;
     }
+    if (is(v, len, "forget")) {
+        return BS_CTRL_FORGET;
+    }
     if (len >= 6 && memcmp(v, "range=", 6) == 0) {
         *arg = 6;
         return BS_CTRL_RANGE;
