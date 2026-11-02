@@ -9,7 +9,8 @@ HARNESS = r"""
 #include "ble_setup_core.h"
 
 // argv: cap, then commands: a:<text> append, A:<n> append n 'x', r reset,
-// p:<off> page of a 1300-byte "0123456789..." text, c:<text> control, k:<n> passkey
+// p:<off> page of a 1300-byte "0123456789..." text, c:<text> control, k:<n> passkey,
+// F which source `settings` reads page (form?) and from where
 int main(int argc, char **argv)
 {
     size_t cap = (size_t)atoi(argv[1]);
@@ -40,9 +41,12 @@ int main(int argc, char **argv)
         } else if (a[0] == 'c') {
             uint32_t arg = 7;
             bs_ctrl_t c = bs_control(a + 2, strlen(a + 2), &arg);
-            if (c == BS_CTRL_READ) s.read_off = arg;
+            if (c == BS_CTRL_READ) { s.read_off = arg; s.read_form = false; }
+            if (c == BS_CTRL_FORM) { s.read_off = arg; s.read_form = true; }
             if (c == BS_CTRL_HIST) s.hist_line = arg;
             printf("%d:%u;", (int)c, (unsigned)arg);
+        } else if (a[0] == 'F') {
+            printf("%d:%u;", (int)s.read_form, (unsigned)s.read_off);
         } else if (a[0] == 'k') {
             char out[7];
             bs_passkey_text((uint32_t)atol(a + 2), out);
@@ -88,9 +92,18 @@ def test_reset_clears_body_read_page_and_history_line(core):
     ("hist=0", "4:0"), ("hist=10700", "4:10700"), ("hist=", "0:7"), ("hist=x", "0:7"),
     ("hist=1234567890", "0:7"), ("range=", "5:6"), ("range=2026-10-01,2026-10-31", "5:6"),
     ("range", "0:7"), ("Range=,", "0:7"),
+    ("form=0", "6:0"), ("form=512", "6:512"), ("form=", "0:7"), ("form=x", "0:7"),
+    ("Form=0", "0:7"),
 ])
 def test_control_commands(core, value, expected):
     assert core(16, f"c:{value}") == [expected]
+
+
+def test_form_pages_until_read_or_reset(core):
+    # The page reads the rules with form=, then the settings again with read=;
+    # a new connection (reset) starts on the settings.
+    assert core(64, "F", "c:form=512", "F", "c:read=0", "F", "c:form=0", "r", "F") == \
+        ["0:0", "6:512", "1:512", "3:0", "0:0", "6:0", "0:0:0", "0:0"]
 
 
 @pytest.mark.parametrize("off,expected", [

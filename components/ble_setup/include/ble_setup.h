@@ -9,9 +9,10 @@
 // Service 6e0a0001-7d3b-4c2a-9f1e-54445333424c, characteristics 6e0a0002..06:
 //   info      read, open                 read_info()
 //   settings  read/write, MITM-paired    write: append to the staged body;
-//                                        read: a 512-byte page of read_settings()
+//                                        read: a 512-byte page of read_settings(),
+//                                        or of read_form() after "form=<offset>"
 //   result    read/notify, MITM-paired   what on_apply() answered ("none" first)
-//   control   write, MITM-paired         "apply", "done", "read=<offset>",
+//   control   write, MITM-paired         "apply", "done", "read=<offset>", "form=<offset>",
 //                                        "hist=<n>", "range=<text>"
 //   history   read, MITM-paired          read_history() from line n (0 on connecting)
 #pragma once
@@ -37,6 +38,17 @@ typedef struct {
     // Fill out (at most cap bytes, no terminator needed); return the length.
     size_t (*read_info)(char *out, size_t cap);
     size_t (*read_settings)(char *out, size_t cap);  // never a secret
+    // Optional: the rules the page checks each field against before it writes
+    // (NULL: `control` "form=<offset>" is refused and the page checks nothing).
+    // A form body with one `<name>=<rules>` per field read_settings shows (a
+    // secret by its name, without "_set"); <rules> is itself a form body:
+    //   label=<text>  required=1  type=email|time|number|password
+    //   minlength= maxlength= min= max= pattern=<regex, whole value>
+    //   options=<a,b>  (a choice; empty allowed unless required)
+    //   group=<g>  need=1  (required once any field of group g is filled)
+    //   hint=<text>
+    // The device still validates every write; the rules only spare a round trip.
+    size_t (*read_form)(char *out, size_t cap);
     // The staged body (terminated) on "apply": validate it, write the answer
     // ("ok" or "invalid=<field>") into result (cap bytes, terminated).
     void (*on_apply)(const char *body, size_t len, char *result, size_t cap);

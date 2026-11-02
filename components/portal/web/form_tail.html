@@ -1,0 +1,68 @@
+<p id="msg" role="status"></p>
+<p><button type="submit">Save and connect</button></p></form>
+<script>
+// FR-13.8, FR-13.9: the browser checks each field before sending; a refused
+// submission leaves the form as typed and marks the field the device named.
+(function () {
+  var f = document.forms[0], m = document.getElementById('msg');
+  function els() {
+    return Array.prototype.filter.call(f.elements, function (e) { return e.name; });
+  }
+  function filled(e) {
+    return (e.type === 'checkbox' || e.type === 'radio') ? e.checked : e.value.trim() !== '';
+  }
+  // A field marked data-need is required once any field of its data-group is filled.
+  function groups() {
+    var on = {};
+    els().forEach(function (e) {
+      var g = e.getAttribute('data-group');
+      if (g && filled(e)) on[g] = true;
+    });
+    els().forEach(function (e) {
+      if (e.hasAttribute('data-need')) e.required = !!on[e.getAttribute('data-group')];
+    });
+  }
+  function labelText(e) {
+    var l = e.closest ? e.closest('label') : null, s = '';
+    if (!l) return e.name;
+    for (var i = 0; i < l.childNodes.length; i++) {
+      if (l.childNodes[i].nodeType === 3) s += l.childNodes[i].textContent;
+    }
+    return s.replace(/\s+/g, ' ').trim() || e.name;
+  }
+  f.addEventListener('input', function () {
+    els().forEach(function (e) { e.setCustomValidity(''); });
+    m.textContent = '';
+    groups();
+  });
+  f.addEventListener('change', groups);
+  groups();
+  f.addEventListener('submit', function (ev) {
+    if (!window.fetch || !window.URLSearchParams || !window.FormData) return;  // a plain post
+    ev.preventDefault();
+    m.textContent = 'Saving…';
+    fetch('/connect', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams(new FormData(f)).toString()
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        if (r.ok) {
+          document.open(); document.write(t); document.close();
+          return;
+        }
+        var n = (t.match(/invalid field: ([\w-]+)/) || [])[1], e = n ? f.elements[n] : null;
+        if (e && !e.tagName) e = e[0];  // several fields of that name
+        m.textContent = 'Not saved: check "' + (e ? labelText(e) : (n || t)) +
+          '". Everything you typed is kept.';
+        if (e) {
+          e.setCustomValidity('The device did not accept this value.');
+          e.reportValidity();
+        }
+      });
+    }).catch(function () {
+      m.textContent = 'No answer from the device. Everything you typed is kept; try again.';
+    });
+  });
+})();
+</script></body></html>

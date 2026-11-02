@@ -18,8 +18,10 @@
   .row { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   #info { color:var(--muted); font-size:.9rem; margin:8px 0 16px; overflow-wrap:anywhere; }
   label { display:block; margin:12px 0 4px; font-weight:600; font-size:.9rem; }
-  input { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--field); color:var(--fg); }
+  input, select { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--field); color:var(--fg); }
   .hint { color:var(--muted); font-size:.8rem; }
+  label[data-req="1"]::after { content:" *"; color:var(--bad); }
+  input:user-invalid, select:user-invalid { border-color:var(--bad); }
   #status { margin-top:16px; min-height:1.5em; }
   .bad { color:var(--bad); } .good { color:var(--good); }
   h2 { font-size:1.1rem; margin:28px 0 0; }
@@ -36,6 +38,7 @@
   </div>
   <div id="info"></div>
   <form id="form" hidden>
+    <p class="hint">Fields marked * are required. The page checks each value before it sends anything.</p>
     <div id="fields"></div>
     <div class="row"><button id="save" type="submit">Save settings</button></div>
   </form>
@@ -55,7 +58,8 @@
 // `settings` append; `control` "apply" acts on them; `result` answers "ok" or
 // "invalid=<field>". Reads of `settings` come in 512-byte pages chosen with
 // `control` "read=<offset>". Secrets are never read: "<name>_set=1" says one is
-// stored, and leaving its box empty keeps it.
+// stored, and leaving its box empty keeps it. `control` "form=<offset>" pages
+// the device's rules for each field instead (refused by a device without them).
 // History (optional): `info` carries "history=<CSV header>" when the device
 // keeps one. "range=<from>,<to>" (YYYY-MM-DD, either empty) sets the filter;
 // "hist=<n>" chooses the first line the next `history` read returns, as many
@@ -65,17 +69,49 @@ const SVC = BASE('01'), INFO = BASE('02'), SETTINGS = BASE('03'), RESULT = BASE(
 const enc = new TextEncoder(), dec = new TextDecoder();
 const $ = (id) => document.getElementById(id);
 let device, chars = {}, secrets = {}, info = new URLSearchParams();
+// What the person typed and has not saved yet, by field: kept over the
+// device's values when the form is drawn again (a reconnect after a lost link).
+let draft = new Map(), rules = new URLSearchParams();
 
 function status(text, cls = '') { const s = $('status'); s.textContent = text; s.className = cls; }
 
-async function readAll() {
+// `settings` reads page what `control` <cmd>=<offset> chose.
+async function readPaged(cmd) {
   let out = '', off = 0;
   for (;;) {
-    await chars.control.writeValueWithResponse(enc.encode(`read=${off}`));
+    await chars.control.writeValueWithResponse(enc.encode(`${cmd}=${off}`));
     const page = dec.decode(await chars.settings.readValue());
     out += page;
     if (enc.encode(page).length < 512) return out;
     off += 512;
+  }
+}
+const readAll = () => readPaged('read');
+
+// The device's rules for each field (ble_setup.h read_form), or none: a device
+// without them refuses "form=", and only its own answer to a write checks.
+async function readRules() {
+  try {
+    return new URLSearchParams(await readPaged('form'));
+  } catch (e) {
+    return new URLSearchParams();
+  }
+}
+
+const CHECKS = ['minlength', 'maxlength', 'min', 'max', 'pattern'];
+const fieldsEl = () => [...$('fields').querySelectorAll('input, select')];
+
+// A field of a group is required once any field of its group is filled.
+function updateGroups() {
+  const filled = new Set();
+  for (const el of fieldsEl()) {
+    // A stored secret alone does not count: clearing the rest turns the group off.
+    if (el.dataset.group && el.value.trim() !== '') filled.add(el.dataset.group);
+  }
+  for (const el of fieldsEl()) {
+    if (!el.dataset.need) continue;
+    el.required = filled.has(el.dataset.group) && secrets[el.name] !== 'stored';
+    el.labels[0].dataset.req = el.required ? '1' : '';
   }
 }
 
@@ -85,17 +121,45 @@ function render(body) {
   box.replaceChildren();
   secrets = {};
   const add = (name, value, secret) => {
+    const r = new URLSearchParams(rules.get(name) || '');
     const label = document.createElement('label');
-    label.textContent = name;
+    label.textContent = r.get('label') || name;
     label.htmlFor = `f-${name}`;
-    const input = document.createElement('input');
-    input.id = `f-${name}`; input.name = name; input.value = value;
-    input.autocomplete = 'off';
+    let input;
+    if (r.has('options')) {
+      input = document.createElement('select');
+      const opts = r.get('options').split(',');
+      if (!r.has('required') || !opts.includes(value)) opts.unshift('');
+      for (const o of opts) input.add(new Option(o || '–', o));
+    } else {
+      input = document.createElement('input');
+      input.autocomplete = 'off';
+      if (r.has('type')) input.type = r.get('type');
+      for (const c of CHECKS) if (r.has(c)) input.setAttribute(c, r.get(c));
+    }
+    input.id = `f-${name}`; input.name = name;
     if (secret) {
       input.type = 'password';
       if (secret === 'stored') input.placeholder = 'stored; leave empty to keep it';
     }
+    input.value = draft.has(name) ? draft.get(name) : value;
+    // A stored secret left empty keeps the stored one, so it is never required.
+    input.required = r.has('required') && secret !== 'stored';
+    label.dataset.req = input.required ? '1' : '';
+    if (r.has('group')) input.dataset.group = r.get('group');
+    if (r.has('need')) input.dataset.need = '1';
+    input.addEventListener('input', () => {
+      draft.set(name, input.value);
+      // The device's verdict was on the old values (a rule may span fields).
+      for (const el of fieldsEl()) el.setCustomValidity('');
+      updateGroups();
+    });
     box.append(label, input);
+    if (r.has('hint')) {
+      const hint = document.createElement('div');
+      hint.className = 'hint'; hint.textContent = r.get('hint');
+      box.append(hint);
+    }
   };
   // A secret's box goes where its "<name>_set" flag stands in the body.
   for (const [k, v] of params) {
@@ -107,6 +171,7 @@ function render(body) {
     }
     add(k, v, false);
   }
+  updateGroups();
   $('form').hidden = false;
 }
 
@@ -140,7 +205,9 @@ async function openLink() {
     .map(([k, v]) => `${k}: ${v}`).join(' · ');
   if (info.has('history')) chars.history = await bounded(svc.getCharacteristic(HISTORY), STEP_MS, 'services');
   status('Pairing: type the code shown on the device…');
-  render(await readAll());  // the first protected read starts pairing
+  const body = await readAll();  // the first protected read starts pairing
+  rules = await readRules();
+  render(body);
 }
 
 let busy = false;
@@ -150,6 +217,7 @@ async function connect() {
   if (picked !== device) {
     if (device && device.gatt.connected) device.gatt.disconnect();
     device = picked;
+    draft = new Map();  // typed for another device
     device.addEventListener('gattserverdisconnected', linkDown);
   }
   busy = true;
@@ -178,9 +246,9 @@ async function connect() {
 }
 
 async function save(ev) {
-  ev.preventDefault();
+  ev.preventDefault();  // only a form that passed the browser's checks gets here
   const params = new URLSearchParams();
-  for (const input of $('fields').querySelectorAll('input')) {
+  for (const input of fieldsEl()) {
     // An empty box for a stored secret keeps it: the field is left out.
     if (secrets[input.name] === 'stored' && input.value === '') continue;
     params.append(input.name, input.value);
@@ -192,8 +260,21 @@ async function save(ev) {
   }
   await chars.control.writeValueWithResponse(enc.encode('apply'));
   const result = dec.decode(await chars.result.readValue());
-  if (result === 'ok') status('Saved. The device applies the settings now and may restart.', 'good');
-  else status(result.startsWith('invalid=') ? `Not saved: check "${result.slice(8)}".` : `Not saved: ${result}`, 'bad');
+  if (result === 'ok') {
+    draft = new Map();
+    status('Saved. The device applies the settings now and may restart.', 'good');
+    return;
+  }
+  // Refused: everything typed stays; the field the device named is marked.
+  const name = result.startsWith('invalid=') ? result.slice(8) : '';
+  const el = name && $(`f-${name}`);
+  if (el) {
+    el.setCustomValidity('The device did not accept this value.');
+    el.reportValidity();
+    status(`Not saved: check "${el.labels[0].textContent}". Everything else you typed is kept.`, 'bad');
+  } else {
+    status(name ? `Not saved: check "${name}".` : `Not saved: ${result}`, 'bad');
+  }
 }
 
 async function downloadHistory() {
