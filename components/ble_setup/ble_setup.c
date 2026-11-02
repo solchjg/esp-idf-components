@@ -13,6 +13,7 @@
 #include "host/ble_hs.h"
 #include "host/util/util.h"
 #include "nimble/nimble_port.h"
+#include "nvs.h"
 #include "nimble/nimble_port_freertos.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
@@ -29,6 +30,7 @@ static const char *TAG = "ble_setup";
 void ble_store_config_init(void);  // NimBLE's RAM/NVS key store; no public header
 
 #define RESULT_MAX 64
+#define BOND_NAMESPACE "nimble_bond"  // NimBLE's NVS store (CONFIG_BT_NIMBLE_NVS_PERSIST)
 
 // 6e0a00xx-7d3b-4c2a-9f1e-54445333424c, little-endian as NimBLE stores it.
 #define BS_UUID(x) BLE_UUID128_INIT(0x4c, 0x42, 0x33, 0x53, 0x44, 0x54, 0x1e, 0x9f, \
@@ -61,8 +63,9 @@ static struct ble_npl_callout sec_co;  // the delayed Security Request
 
 static void advertise(void);
 
-// No bonds are kept (sm_bonding = 0), so a central that starts encryption with
-// a key it remembers holds one this device never stored: NimBLE looks the key
+// A central that starts encryption with a key it remembers but this device
+// does not hold (no bonds kept, CONFIG_BLE_SETUP_BOND off, or the bond was
+// forgotten here, e.g. by a factory reset): NimBLE looks the key
 // up (our security record for that peer), finds none and answers with a
 // negative reply, but leaves the link up (older NimBLE even waits 30 s for an
 // encryption change), so the central sits on an unencrypted link whose reads
@@ -289,7 +292,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         return 0;
     }
     case BLE_GAP_EVENT_REPEAT_PAIRING: {
-        // No bonds are kept; a central that remembers one pairs afresh.
+        // The central forgot its bond and pairs again: replace ours.
         struct ble_gap_conn_desc desc;
         if (ble_gap_conn_find(event->repeat_pairing.conn_handle, &desc) == 0) {
             ble_store_util_delete_peer(&desc.peer_id_addr);
@@ -395,9 +398,18 @@ esp_err_t ble_setup_start(const ble_setup_config_t *c)
     ble_hs_cfg.sm_io_cap = BLE_SM_IO_CAP_DISP_ONLY;
     ble_hs_cfg.sm_sc = 1;
     ble_hs_cfg.sm_mitm = 1;
+#if CONFIG_BLE_SETUP_BOND
+    // Android keeps its half of a pairing whether or not the peripheral asks
+    // for bonding, and then stalls on the next connection; keeping ours lets
+    // it reconnect by encryption alone.
+    ble_hs_cfg.sm_bonding = 1;
+    ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+#else
     ble_hs_cfg.sm_bonding = 0;
     ble_hs_cfg.sm_our_key_dist = 0;
     ble_hs_cfg.sm_their_key_dist = 0;
+#endif
 
     ble_svc_gap_init();
     ble_svc_gatt_init();
@@ -447,4 +459,25 @@ esp_err_t ble_setup_stop(void)
 bool ble_setup_running(void)
 {
     return running;
+}
+
+esp_err_t ble_setup_forget(void)
+{
+    if (running) {
+        return ble_store_clear() == 0 ? ESP_OK : ESP_FAIL;
+    }
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(BOND_NAMESPACE, NVS_READWRITE, &h);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK;  // never bonded
+    }
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_erase_all(h);
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
+    nvs_close(h);
+    return err;
 }
