@@ -31,6 +31,8 @@ void ble_store_config_init(void);  // NimBLE's RAM/NVS key store; no public head
 
 #define RESULT_MAX 64
 #define BOND_NAMESPACE "nimble_bond"  // NimBLE's NVS store (CONFIG_BT_NIMBLE_NVS_PERSIST)
+#define ADDR_NAMESPACE "ble_setup"    // this component's own: the address (bs_addr_keep)
+#define ADDR_KEY "addr"
 
 // 6e0a00xx-7d3b-4c2a-9f1e-54445333424c, little-endian as NimBLE stores it.
 #define BS_UUID(x) BLE_UUID128_INIT(0x4c, 0x42, 0x33, 0x53, 0x44, 0x54, 0x1e, 0x9f, \
@@ -365,9 +367,60 @@ static void advertise(void)
     }
 }
 
+// The static random address of bs_addr_keep(): the stored one while a bond is
+// held, else a new one, stored (bonds left from another address are erased
+// with it: no central reaches them any more). False when none could be set.
+static bool use_static_addr(void)
+{
+    ble_addr_t peers[CONFIG_BT_NIMBLE_MAX_BONDS];
+    int bonds = 0;
+    if (ble_store_util_bonded_peers(peers, &bonds, CONFIG_BT_NIMBLE_MAX_BONDS) != 0) {
+        bonds = 0;
+    }
+    uint8_t addr[6], check[6];
+    size_t len = sizeof addr;
+    nvs_handle_t h;
+    bool open = nvs_open(ADDR_NAMESPACE, NVS_READWRITE, &h) == ESP_OK;
+    bool stored = open && nvs_get_blob(h, ADDR_KEY, addr, &len) == ESP_OK && len == sizeof addr;
+    if (stored) {
+        memcpy(check, addr, sizeof check);
+        stored = bs_addr_static(check) && memcmp(check, addr, sizeof addr) == 0;
+    }
+    if (!bs_addr_keep(stored, bonds)) {
+        if (bonds > 0) {
+            int rc = ble_store_clear();
+            ESP_LOGI(TAG, "bonds of an earlier address erased: %d", rc);
+        }
+        do {
+            esp_fill_random(addr, sizeof addr);
+        } while (!bs_addr_static(addr));
+        esp_err_t err = open ? nvs_set_blob(h, ADDR_KEY, addr, sizeof addr) : ESP_FAIL;
+        if (err == ESP_OK) {
+            err = nvs_commit(h);
+        }
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "address not stored: %s", esp_err_to_name(err));
+        }
+        ESP_LOGI(TAG, "new address (%d bonds held)", bonds);
+    }
+    if (open) {
+        nvs_close(h);
+    }
+    int rc = ble_hs_id_set_rnd(addr);
+    if (rc != 0) {
+        ESP_LOGW(TAG, "static address refused: %d", rc);
+        return false;
+    }
+    own_addr_type = BLE_OWN_ADDR_RANDOM;
+    ESP_LOGI(TAG, "address %02x:%02x:%02x:%02x:%02x:%02x", addr[5], addr[4], addr[3], addr[2],
+             addr[1], addr[0]);
+    return true;
+}
+
 static void on_sync(void)
 {
-    if (ble_hs_util_ensure_addr(0) != 0 || ble_hs_id_infer_auto(0, &own_addr_type) != 0) {
+    if (!use_static_addr() &&
+        (ble_hs_util_ensure_addr(0) != 0 || ble_hs_id_infer_auto(0, &own_addr_type) != 0)) {
         ESP_LOGE(TAG, "no usable address");
         return;
     }
