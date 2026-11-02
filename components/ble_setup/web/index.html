@@ -268,7 +268,7 @@ async function openLink() {
   $('info').textContent = [...info].filter(([k]) => k !== 'history')
     .map(([k, v]) => `${k}: ${v}`).join(' · ');
   if (info.has('history')) chars.history = await bounded(svc.getCharacteristic(HISTORY), STEP_MS, 'services');
-  status('Pairing: type the code shown on the device…');
+  status('Checking pairing: if asked, type the code shown on the device…');
   const body = await readAll();  // the first protected read starts pairing
   rules = await readRules();
   render(body);
@@ -276,7 +276,10 @@ async function openLink() {
 
 let busy = false;
 async function connect() {
-  status('Choose the device in the list…');
+  // The browser's own chooser names its button "Pair": it only lets this page
+  // reach the device. Pairing proper (the 6-digit code) comes after, and only
+  // when this phone has not paired with the device already.
+  status('Pick the device and press Pair. That only lets this page reach it; if this phone has not paired with it yet, the 6-digit code is asked next.');
   const picked = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
   if (picked !== device) {
     if (device && device.gatt.connected) device.gatt.disconnect();
