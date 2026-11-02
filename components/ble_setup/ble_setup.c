@@ -17,6 +17,13 @@
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
 
+#if !CONFIG_BT_NIMBLE_GATT_CLIENT
+// A phone sends an indication (Service Changed) on connecting; only the GATT
+// client confirms it, and an unconfirmed one makes the phone drop the link
+// after 30 s. It needs CONFIG_BT_NIMBLE_ROLE_CENTRAL=y.
+#error "ble_setup needs CONFIG_BT_NIMBLE_GATT_CLIENT=y"
+#endif
+
 static const char *TAG = "ble_setup";
 
 void ble_store_config_init(void);  // NimBLE's RAM/NVS key store; no public header

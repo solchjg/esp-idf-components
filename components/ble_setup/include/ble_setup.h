@@ -3,6 +3,8 @@
 // Connections with a passkey the app shows. NimBLE, peripheral role only, one
 // central at a time. The app decides when it runs (start/stop) and what the
 // settings mean (the callbacks); the component never stores anything.
+// Needs CONFIG_BT_NIMBLE_GATT_CLIENT=y (and so ROLE_CENTRAL=y): a phone's
+// indications on connecting must be confirmed, or it drops the link at 30 s.
 //
 // Service 6e0a0001-7d3b-4c2a-9f1e-54445333424c, characteristics 6e0a0002..06:
 //   info      read, open                 read_info()

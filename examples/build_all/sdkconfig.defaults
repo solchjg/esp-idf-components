@@ -3,6 +3,9 @@ CONFIG_DEEP_SLEEP_WAKE_GPIO=21
 # ble_setup needs NimBLE, peripheral role only.
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
-CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+# GATT client (needs the central role): confirms the indications a phone sends
+# on connecting (Service Changed); without it the phone waits 30 s and drops the link.
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
+CONFIG_BT_NIMBLE_GATT_CLIENT=y
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1

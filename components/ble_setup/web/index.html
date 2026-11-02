@@ -113,6 +113,9 @@ function render(body) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // A step that needs no person bounded in time, so a link that went quiet
 // fails here instead of leaving the page waiting for ever.
+// Generous: a phone may pair as the link comes up, and the person types the
+// code meanwhile, holding up these steps (pairing itself times out at 30 s).
+const STEP_MS = 45000;
 function bounded(p, ms, what) {
   let t;
   return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what}: no answer`)), ms); })])
@@ -126,16 +129,16 @@ function linkDown() {
 
 async function openLink() {
   if (device.gatt.connected) device.gatt.disconnect();  // a link left from before
-  const server = await bounded(device.gatt.connect(), 15000, 'connect');
-  const svc = await bounded(server.getPrimaryService(SVC), 10000, 'services');
+  const server = await bounded(device.gatt.connect(), STEP_MS, 'connect');
+  const svc = await bounded(server.getPrimaryService(SVC), STEP_MS, 'services');
   chars = {};
   for (const [k, u] of Object.entries({ info: INFO, settings: SETTINGS, result: RESULT, control: CONTROL })) {
-    chars[k] = await bounded(svc.getCharacteristic(u), 10000, 'services');
+    chars[k] = await bounded(svc.getCharacteristic(u), STEP_MS, 'services');
   }
-  info = new URLSearchParams(dec.decode(await bounded(chars.info.readValue(), 10000, 'info')));
+  info = new URLSearchParams(dec.decode(await bounded(chars.info.readValue(), STEP_MS, 'info')));
   $('info').textContent = [...info].filter(([k]) => k !== 'history')
     .map(([k, v]) => `${k}: ${v}`).join(' · ');
-  if (info.has('history')) chars.history = await bounded(svc.getCharacteristic(HISTORY), 10000, 'services');
+  if (info.has('history')) chars.history = await bounded(svc.getCharacteristic(HISTORY), STEP_MS, 'services');
   status('Pairing: type the code shown on the device…');
   render(await readAll());  // the first protected read starts pairing
 }
