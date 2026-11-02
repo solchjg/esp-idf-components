@@ -14,7 +14,8 @@
 //                                        read: a 512-byte page of read_settings()
 //   result    read/notify, MITM-paired   what on_apply() answered ("none" first)
 //   control   write, MITM-paired         "apply", "done", "read=<offset>",
-//                                        "hist=<n>", "range=<text>"
+//                                        "hist=<n>", "range=<text>", "forget"
+//                                        (erase every bond, this central's too)
 //   history   read, MITM-paired          read_history() from line n (0 on connecting)
 #pragma once
 
@@ -30,6 +31,7 @@ typedef enum {
     BLE_SETUP_EV_PAIRED,       // link encrypted with an authenticated key
     BLE_SETUP_EV_PAIR_FAILED,  // pairing or encryption failed
     BLE_SETUP_EV_DONE,         // `control` written with "done"
+    BLE_SETUP_EV_FORGOTTEN,    // `control` "forget": every bond erased
 } ble_setup_event_t;
 
 // Every callback runs in the NimBLE host task; keep them short and post to

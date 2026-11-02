@@ -33,6 +33,7 @@
   <div class="row">
     <button id="connect">Connect to device</button>
     <button id="done" class="quiet" disabled>Done</button>
+    <button id="forget" class="quiet" disabled>Forget all phones</button>
   </div>
   <div id="info"></div>
   <form id="form" hidden>
@@ -123,7 +124,7 @@ function bounded(p, ms, what) {
 }
 
 function linkDown() {
-  $('done').disabled = true; $('save').disabled = true; $('hdl').disabled = true;
+  $('done').disabled = true; $('save').disabled = true; $('hdl').disabled = true; $('forget').disabled = true;
   if (!busy && !$('status').className) status('Disconnected.');
 }
 
@@ -172,7 +173,7 @@ async function connect() {
   } finally {
     busy = false;
   }
-  $('done').disabled = false; $('save').disabled = false; $('hdl').disabled = false;
+  $('done').disabled = false; $('save').disabled = false; $('hdl').disabled = false; $('forget').disabled = false;
   $('hist').hidden = !chars.history;
   status(`Connected to ${device.name}.`);
 }
@@ -229,6 +230,12 @@ $('hdl').addEventListener('click', () => downloadHistory().catch((e) => status(S
 $('done').addEventListener('click', () => chars.control.writeValueWithResponse(enc.encode('done'))
   .then(() => status('Finished. The device turns Bluetooth off.', 'good'))
   .catch((e) => status(String(e.message || e), 'bad')));
+$('forget').addEventListener('click', () => {
+  if (!confirm('The device forgets every phone paired with it, this one too. Each phone then needs the device removed from its Bluetooth settings before it pairs again.')) return;
+  chars.control.writeValueWithResponse(enc.encode('forget'))
+    .then(() => status(`${device.name} has forgotten all phones. Remove it from this phone's Bluetooth devices too.`, 'good'))
+    .catch((e) => status(String(e.message || e), 'bad'));
+});
 if (!navigator.bluetooth) status('This browser has no Web Bluetooth. Use Chrome or Edge, or Bluefy on iPhone.', 'bad');
 </script>
 </body>

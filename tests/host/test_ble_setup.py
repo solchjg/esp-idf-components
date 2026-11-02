@@ -88,6 +88,7 @@ def test_reset_clears_body_read_page_and_history_line(core):
     ("hist=0", "4:0"), ("hist=10700", "4:10700"), ("hist=", "0:7"), ("hist=x", "0:7"),
     ("hist=1234567890", "0:7"), ("range=", "5:6"), ("range=2026-10-01,2026-10-31", "5:6"),
     ("range", "0:7"), ("Range=,", "0:7"),
+    ("forget", "6:7"), ("forget ", "0:7"), ("Forget", "0:7"),
 ])
 def test_control_commands(core, value, expected):
     assert core(16, f"c:{value}") == [expected]

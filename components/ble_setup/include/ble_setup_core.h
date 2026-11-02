@@ -34,6 +34,7 @@ typedef enum {
     BS_CTRL_READ,     // `read=<offset>`: later reads start at offset
     BS_CTRL_HIST,     // `hist=<n>`: later `history` reads start at line n
     BS_CTRL_RANGE,    // `range=<text>`: the app's filter for `history`
+    BS_CTRL_FORGET,   // `forget`: erase every bond
 } bs_ctrl_t;
 
 // Parse a `control` write. *arg gets the number of BS_CTRL_READ and

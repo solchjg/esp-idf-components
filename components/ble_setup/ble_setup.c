@@ -54,6 +54,7 @@ static char result[RESULT_MAX] = "none";
 static SemaphoreHandle_t host_stopped;
 static ble_store_read_fn *store_read;  // the RAM store's own reader
 static struct ble_npl_event drop_ev;   // drops the link of a central with a stale key
+static struct ble_npl_event forget_ev; // erases every bond, after the write is answered
 static bool stale_key;                 // this link's central presented one
 static bool pairing;                   // a pairing reached its passkey step on this link
 static struct ble_npl_callout sec_co;  // the delayed Security Request
@@ -117,6 +118,15 @@ static void emit(ble_setup_event_t ev)
 {
     if (cfg->on_event) {
         cfg->on_event(ev);
+    }
+}
+
+static void forget_all(struct ble_npl_event *ev)
+{
+    int rc = ble_store_clear();
+    ESP_LOGI(TAG, "bonds erased: %d", rc);
+    if (rc == 0) {
+        emit(BLE_SETUP_EV_FORGOTTEN);
     }
 }
 
@@ -185,6 +195,9 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
             return 0;
         case BS_CTRL_DONE:
             emit(BLE_SETUP_EV_DONE);
+            return 0;
+        case BS_CTRL_FORGET:
+            ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &forget_ev);
             return 0;
         case BS_CTRL_READ:
             session.read_off = off;
@@ -430,6 +443,7 @@ esp_err_t ble_setup_start(const ble_setup_config_t *c)
     store_read = ble_hs_cfg.store_read_cb;
     ble_hs_cfg.store_read_cb = read_store;
     ble_npl_event_init(&drop_ev, drop_stale, NULL);
+    ble_npl_event_init(&forget_ev, forget_all, NULL);
     ble_npl_callout_init(&sec_co, nimble_port_get_dflt_eventq(), request_security, NULL);
     running = true;
     xSemaphoreTake(host_stopped, 0);
@@ -450,6 +464,8 @@ esp_err_t ble_setup_stop(void)
     ble_npl_callout_deinit(&sec_co);
     ble_npl_eventq_remove(nimble_port_get_dflt_eventq(), &drop_ev);
     ble_npl_event_deinit(&drop_ev);
+    ble_npl_eventq_remove(nimble_port_get_dflt_eventq(), &forget_ev);
+    ble_npl_event_deinit(&forget_ev);
     esp_err_t err = nimble_port_deinit();
     conn = BLE_HS_CONN_HANDLE_NONE;
     release();
