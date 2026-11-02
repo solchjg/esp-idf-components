@@ -7,6 +7,7 @@
 #include "identity.h"
 #include "mail_tx.h"
 #include "mdns_name.h"
+#include "ntfy_tx.h"
 #include "ota_rx.h"
 #include "portal.h"
 #include "rm67162.h"
