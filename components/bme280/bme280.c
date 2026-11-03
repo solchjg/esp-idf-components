@@ -1,5 +1,6 @@
 #include "bme280.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "driver/i2c_master.h"
@@ -11,6 +12,7 @@
 
 static struct {
     i2c_master_bus_handle_t bus;
+    bool own_bus;  // opened here, so deleted at stop; else joined (another driver's)
     i2c_master_dev_handle_t dev;
     bme280_settings_t settings;
     bme280_calib_t calib;
@@ -46,7 +48,7 @@ static esp_err_t esp_of(int err)
     }
 }
 
-static esp_err_t open_bus(const bme280_config_t *cfg)
+static esp_err_t new_bus(const bme280_config_t *cfg)
 {
     i2c_master_bus_config_t bc = {
         .i2c_port = cfg->i2c_port,
@@ -57,6 +59,19 @@ static esp_err_t open_bus(const bme280_config_t *cfg)
         .flags.enable_internal_pullup = cfg->internal_pullup,
     };
     ESP_TRY(i2c_new_master_bus(&bc, &s.bus));
+    s.own_bus = true;
+    return ESP_OK;
+}
+
+// Joins the master bus already open on the port (another driver's, e.g. a
+// Notecard's), or opens one.
+static esp_err_t open_bus(const bme280_config_t *cfg)
+{
+    if (cfg->i2c_port >= 0 && i2c_master_get_bus_handle(cfg->i2c_port, &s.bus) == ESP_OK) {
+        s.own_bus = false;
+    } else {
+        ESP_TRY(new_bus(cfg));
+    }
     i2c_device_config_t dc = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = cfg->address,
@@ -102,10 +117,11 @@ esp_err_t bme280_stop(void)
         err = i2c_master_bus_rm_device(s.dev);
         s.dev = NULL;
     }
-    if (s.bus != NULL) {
+    if (s.bus != NULL && s.own_bus) {
         esp_err_t e = i2c_del_master_bus(s.bus);
         err = err != ESP_OK ? err : e;
-        s.bus = NULL;
     }
+    s.bus = NULL;
+    s.own_bus = false;
     return err;
 }
