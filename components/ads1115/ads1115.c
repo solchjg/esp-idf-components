@@ -1,8 +1,10 @@
 #include "ads1115.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "driver/i2c_master.h"
+#include "esp_log.h"
 #include "esp_rom_sys.h"
 #include "esp_try.h"
 #include "freertos/FreeRTOS.h"
@@ -60,9 +62,20 @@ static esp_err_t esp_of(int err)
     }
 }
 
+// The master bus another driver already opened on port. A port with none is
+// the normal case here, so the I2C driver's error log for it is held back.
+static bool shared_bus(int port, i2c_master_bus_handle_t *bus)
+{
+    esp_log_level_t was = esp_log_level_get("i2c.master");
+    esp_log_level_set("i2c.master", ESP_LOG_NONE);
+    bool ok = i2c_master_get_bus_handle(port, bus) == ESP_OK;
+    esp_log_level_set("i2c.master", was);
+    return ok;
+}
+
 static esp_err_t open_bus(const ads1115_config_t *cfg)
 {
-    if (i2c_master_get_bus_handle(cfg->i2c_port, &s.bus) != ESP_OK) {
+    if (!shared_bus(cfg->i2c_port, &s.bus)) {
         i2c_master_bus_config_t bc = {
             .i2c_port = cfg->i2c_port,
             .sda_io_num = cfg->sda_gpio,
