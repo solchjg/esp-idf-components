@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "driver/i2c_master.h"
+#include "esp_log.h"
 #include "esp_try.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -63,11 +64,22 @@ static esp_err_t new_bus(const bme280_config_t *cfg)
     return ESP_OK;
 }
 
+// The master bus another driver already opened on port. A port with none is
+// the normal case here, so the I2C driver's error log for it is held back.
+static bool shared_bus(int port, i2c_master_bus_handle_t *bus)
+{
+    esp_log_level_t was = esp_log_level_get("i2c.master");
+    esp_log_level_set("i2c.master", ESP_LOG_NONE);
+    bool ok = i2c_master_get_bus_handle(port, bus) == ESP_OK;
+    esp_log_level_set("i2c.master", was);
+    return ok;
+}
+
 // Joins the master bus already open on the port (another driver's, e.g. a
 // Notecard's), or opens one.
 static esp_err_t open_bus(const bme280_config_t *cfg)
 {
-    if (cfg->i2c_port >= 0 && i2c_master_get_bus_handle(cfg->i2c_port, &s.bus) == ESP_OK) {
+    if (cfg->i2c_port >= 0 && shared_bus(cfg->i2c_port, &s.bus)) {
         s.own_bus = false;
     } else {
         ESP_TRY(new_bus(cfg));
