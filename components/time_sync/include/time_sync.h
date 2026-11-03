@@ -5,6 +5,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "esp_err.h"
 
@@ -21,6 +22,12 @@ esp_err_t time_sync_start(time_sync_cb_t on_sync);
 
 // Network down: stop SNTP. The clock keeps running and stays synced.
 void time_sync_stop(void);
+
+// Sets the clock from another source (seconds since 1970 UTC, e.g. a modem's
+// network time) and marks it synced as an SNTP sync does, kept across deep
+// sleep; on_sync is not called. ESP_ERR_INVALID_ARG for a time that fails
+// ts_epoch_valid, the clock then unchanged.
+esp_err_t time_sync_set(int64_t epoch_s);
 
 // True once the clock was synced since the last power-on or reset.
 bool time_sync_synced(void);

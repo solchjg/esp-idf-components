@@ -1,6 +1,7 @@
 #include "time_sync.h"
 
 #include <stdlib.h>
+#include <sys/time.h>
 #include <time.h>
 
 #include "esp_attr.h"
@@ -49,6 +50,20 @@ void time_sync_stop(void)
         esp_netif_sntp_deinit();
         started = false;
     }
+}
+
+esp_err_t time_sync_set(int64_t epoch_s)
+{
+    if (!ts_epoch_valid(epoch_s)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    struct timeval tv = {.tv_sec = (time_t)epoch_s};
+    if (settimeofday(&tv, NULL) != 0) {
+        return ESP_FAIL;
+    }
+    synced = true;
+    synced_rtc = true;
+    return ESP_OK;
 }
 
 bool time_sync_synced(void)

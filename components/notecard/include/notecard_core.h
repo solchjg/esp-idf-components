@@ -47,6 +47,15 @@ bool nc_num(const char *json, const char *path, double *out);
 // True when the answer carries "err"; its text goes to out (may be NULL).
 bool nc_err(const char *json, char *out, size_t n);
 
+// True when an "err" answer says the Notecard can hold no more notes: {full},
+// {file-storage-full}, {file-write-failure} or {note-max} in its text.
+bool nc_err_full(const char *json);
+
+// s as a JSON string, quotes included: '"' and '\\' escaped, \n \r \t as
+// such, other control bytes as \u00XX, every other byte (UTF-8) as is. The
+// length written, or 0 when it does not fit in buf with its NUL.
+size_t nc_json_str(char *buf, size_t n, const char *s);
+
 // FSD §33.3: 1 – 64 bytes of letters, digits, '.', ':', '-' and '_'.
 bool nc_product_valid(const char *s);
 
