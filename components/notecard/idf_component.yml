@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "Blues Notecard on I2C: Blues' note-c (vendored, v2.6.2) over the ESP-IDF I2C master driver, joining an open bus, plus a pure core that builds the JSON requests and reads the answers (needs esp_try)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"

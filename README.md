@@ -22,6 +22,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | `time_sync` | time zone and SNTP while a network is up; synced state survives deep sleep | `TIME_SYNC_SERVER` ("pool.ntp.org"), `TIME_SYNC_TZ` ("UTC0") | — |
 | `mail_tx` | one plain-text email over SMTP: TLS on 465, STARTTLS otherwise, CA-bundle verified, AUTH PLAIN or LOGIN | — (needs `MBEDTLS_CERTIFICATE_BUNDLE`, on by default) | — |
 | `ntfy_tx` | one ntfy push notification (self-hosted or ntfy.sh) by HTTP POST: title, priority, tags, click URL, optional Bearer token; HTTPS CA-bundle verified | — (HTTPS needs `MBEDTLS_CERTIFICATE_BUNDLE`, on by default) | — |
+| `notecard` | Blues Notecard on I2C (0x17): Blues' note-c, vendored unchanged (v2.6.2, MIT), over the I2C master driver, joining a bus another driver opened or opening its own; a pure core builds the JSON request lines (`hub.set`, `card.transport`, `note.add`, `card.location.mode`, ...) and reads answer fields (`nc_str`, `nc_num`, `nc_err`, dotted paths) | — | `esp_try` |
 | `flash_ring` | append-only log of fixed-size records in a data partition: reuses its oldest sector when full, skips torn records, resumes a cut-short clear | — | a data partition; NVS for the clear mark |
 | `bme280` | BME280 temperature, humidity and pressure on I2C, one forced reading per call, configured by `bme280_config_t` | — | `esp_try` |
 | `ads1115` | ADS1115 16-bit ADC on I2C, single-shot conversions and their mean in µV; joins a bus another driver opened on the port, or opens its own | — | `esp_try` |
