@@ -288,6 +288,63 @@ bool nc_err(const char *json, char *out, size_t n)
     return true;
 }
 
+bool nc_err_full(const char *json)
+{
+    static const char *const FULL[] = {"{full}", "{file-storage-full}", "{file-write-failure}",
+                                       "{note-max}"};
+    const char *v;
+    size_t len;
+    if (!nc_find(json, "err", &v, &len)) {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof FULL / sizeof FULL[0]; i++) {
+        size_t k = strlen(FULL[i]);
+        for (size_t o = 0; o + k <= len; o++) {
+            if (memcmp(v + o, FULL[i], k) == 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+size_t nc_json_str(char *buf, size_t n, const char *s)
+{
+    size_t o = 0;
+    if (n < 3) {
+        return 0;
+    }
+    buf[o++] = '"';
+    for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+        char esc[7];
+        size_t k;
+        if (*p == '"' || *p == '\\') {
+            esc[0] = '\\';
+            esc[1] = (char)*p;
+            k = 2;
+        } else if (*p == '\n' || *p == '\r' || *p == '\t') {
+            esc[0] = '\\';
+            esc[1] = *p == '\n' ? 'n' : *p == '\r' ? 'r' : 't';
+            k = 2;
+        } else if (*p < 0x20) {
+            snprintf(esc, sizeof esc, "\\u%04x", *p);
+            k = 6;
+        } else {
+            esc[0] = (char)*p;
+            k = 1;
+        }
+        if (o + k + 2 > n) {  // room for the closing quote and the NUL
+            buf[0] = '\0';
+            return 0;
+        }
+        memcpy(buf + o, esc, k);
+        o += k;
+    }
+    buf[o++] = '"';
+    buf[o] = '\0';
+    return o;
+}
+
 static bool num_is(const char *json, const char *path, int want)
 {
     double d;

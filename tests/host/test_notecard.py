@@ -14,6 +14,7 @@ HARNESS = r"""
 //       | note <file> <body> <sync 0|1> | loc <mode> [lat lon] | small <name>
 //       | str <json> <path> | num <json> <path> | err <json> | product <s>
 //       | hub <json> <product> <out> <in> | is <json> <method>
+//       | full <json> | json <s> | jsonsmall <s>
 int main(int argc, char **argv)
 {
     static char buf[512];
@@ -60,6 +61,11 @@ int main(int argc, char **argv)
     } else if (strcmp(c, "hub") == 0) {
         printf("%d", nc_hub_matches(argv[2], argv[3], atoi(argv[4]), atoi(argv[5])));
         return 0;
+    } else if (strcmp(c, "full") == 0) {
+        printf("%d", nc_err_full(argv[2]));
+        return 0;
+    } else if (strcmp(c, "json") == 0 || strcmp(c, "jsonsmall") == 0) {
+        n = nc_json_str(buf, c[4] == 's' ? 8 : sizeof buf, argv[2]);
     } else if (strcmp(c, "is") == 0) {
         printf("%d", nc_transport_is(argv[2], argv[3]));
         return 0;
@@ -190,3 +196,27 @@ def test_transport_is(nc):
     assert nc("is", '{"method":"cell"}', "cell") == "1"
     assert nc("is", '{"method":"wifi-cell"}', "cell") == "0"
     assert nc("is", "{}", "cell") == "0"
+
+
+def test_err_full(nc):
+    assert nc("full", '{"err":"error adding note: notefile is full {full}"}') == "1"
+    assert nc("full", '{"err":"x {file-storage-full}"}') == "1"
+    assert nc("full", '{"err":"x {note-max}"}') == "1"
+    assert nc("full", '{"err":"x {file-write-failure}"}') == "1"
+    assert nc("full", '{"err":"product UID has not yet been specified {product-noexist}"}') == "0"
+    assert nc("full", '{"total":1,"note":"{full}"}') == "0"   # not in an err
+
+
+@pytest.mark.parametrize("s", ['plain', 'say "hi"', "back\\slash", "two\nlines\ttab",
+                               "\x01ctl", "23.5 \u00b0F caf\u00e9"])
+def test_json_str(nc, s):
+    out = nc("json", s)
+    n, lit = out.split(" ", 1)
+    assert int(n) == len(lit.encode())
+    assert json.loads(lit) == s
+
+
+def test_json_str_too_small(nc):
+    assert nc("jsonsmall", "abcde") == "7 \"abcde\""      # 7 bytes and the NUL fit in 8
+    assert nc("jsonsmall", "abcdef") == "INVALID"
+    assert nc("jsonsmall", 'ab"cd') == "INVALID"           # the escape takes a byte more
