@@ -15,4 +15,13 @@ menu "Provisioning portal"
             A longer POST /connect body is answered 400. Room for the WiFi
             fields and any extra fields the app adds, percent-encoded.
 
+    config PORTAL_WIFI_SWITCH
+        bool "WiFi on/off switch in the form"
+        default n
+        help
+            Adds a `wifi` choice (On / Off) before the network name. With
+            Off the network name and password are optional, and the
+            submission is checked by pc_parse_wifi; the app reads `wifi`
+            itself (pc_field) and decides what Off means.
+
 endmenu
