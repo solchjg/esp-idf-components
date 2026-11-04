@@ -72,6 +72,29 @@ pc_result_t pc_parse_form(const char *body, size_t len, pc_creds_t *out)
     return PC_OK;
 }
 
+pc_result_t pc_parse_wifi(const char *body, size_t len, pc_creds_t *out, bool *wifi_on)
+{
+    char w[4];
+    int n = pc_field(body, len, "wifi", w, sizeof w - 1);
+    *wifi_on = n == PC_FIELD_ABSENT || n == 0 || strcmp(w, "on") == 0;
+    pc_result_t r = pc_parse_form(body, len, out);
+    if (!*wifi_on && strcmp(w, "off") != 0) {
+        out->ssid[0] = out->password[0] = '\0';
+        return PC_BAD_WIFI;
+    }
+    if (r == PC_OK || *wifi_on) {
+        return r;
+    }
+    char ssid[PC_SSID_MAX + 1], pw[PC_PASSWORD_MAX + 1];
+    int sl = pc_field(body, len, "ssid", ssid, PC_SSID_MAX);
+    int pl = pc_field(body, len, "password", pw, PC_PASSWORD_MAX);
+    if ((sl == PC_FIELD_ABSENT || sl == 0) && (pl == PC_FIELD_ABSENT || pl == 0)) {
+        out->ssid[0] = out->password[0] = '\0';
+        return PC_OK;
+    }
+    return r;
+}
+
 int pc_field(const char *body, size_t len, const char *name, char *out, size_t max)
 {
     size_t nlen = strlen(name);

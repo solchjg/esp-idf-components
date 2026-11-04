@@ -1,6 +1,7 @@
 // Provisioning Portal (FSD §13), pure form core. No ESP-IDF headers.
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #define PC_SSID_MAX 32      // FR-13.4
@@ -15,11 +16,18 @@ typedef enum {
     PC_OK = 0,
     PC_BAD_SSID = 1,      // missing, empty or longer than 32 bytes
     PC_BAD_PASSWORD = 2,  // missing, 1 – 7 or more than 63 bytes
+    PC_BAD_WIFI = 3,      // `wifi` neither `on` nor `off` (pc_parse_wifi)
 } pc_result_t;
 
 // Decode an application/x-www-form-urlencoded body with fields `ssid` and
 // `password` (any order, '+' and %XX decoded) and validate them (FR-13.4).
 pc_result_t pc_parse_form(const char *body, size_t len, pc_creds_t *out);
+
+// The same with a WiFi switch, a `wifi` field of `on` or `off` (absent or empty:
+// on). *wifi_on tells which. On: as pc_parse_form. Off: the credentials are
+// optional; a body whose `ssid` and `password` are both absent or empty is
+// valid with empty credentials, any other is checked as pc_parse_form.
+pc_result_t pc_parse_wifi(const char *body, size_t len, pc_creds_t *out, bool *wifi_on);
 
 // One field of the same kind of body, for fields an app adds to the form:
 // decoded into out (at most `max` bytes plus the terminator). Returns the

@@ -23,6 +23,15 @@ int main(int argc, char **argv)
         printf("%d|%.*s", n, (int)sizeof out, out);
         return 0;
     }
+    if (argc > 2 && strcmp(argv[2], "wifi") == 0) {
+        pc_creds_t c;
+        memset(&c, 'X', sizeof c);
+        bool on = false;
+        pc_result_t r = pc_parse_wifi(argv[1], strlen(argv[1]), &c, &on);
+        printf("%d|%d|%.*s|%.*s", (int)r, on, (int)sizeof c.ssid, c.ssid,
+               (int)sizeof c.password, c.password);
+        return 0;
+    }
     if (argc > 2 && strcmp(argv[2], "escape") == 0) {
         char out[256];
         pc_html_escape(argv[1], out, sizeof out);
@@ -117,4 +126,26 @@ def test_one_extra_field_is_decoded(tmp_path_factory, parse, body, name, expect)
     import subprocess as sp
     exe = next(tmp_path_factory.getbasetemp().rglob("pc"))
     out = sp.run([str(exe), body, "field", name], capture_output=True, text=True).stdout
+    assert out == expect
+
+
+# pc_parse_wifi: the WiFi switch (PORTAL_WIFI_SWITCH)
+@pytest.mark.parametrize("body,expect", [
+    ("ssid=a&password=", "0|1|a|"),                          # no switch: on, as pc_parse_form
+    ("wifi=&ssid=a&password=", "0|1|a|"),                    # empty: on
+    ("wifi=on&ssid=a&password=12345678", "0|1|a|12345678"),
+    ("wifi=on&ssid=&password=", "1|1||"),                    # on still needs a network name
+    ("wifi=off", "0|0||"),                                   # off: no credentials needed
+    ("wifi=off&ssid=&password=", "0|0||"),                   # the form's empty fields
+    ("wifi=off&ssid=a&password=", "0|0|a|"),                 # off with credentials kept
+    ("wifi=off&ssid=" + "S" * 33 + "&password=", "1|0||"),   # given, they are checked
+    ("wifi=off&ssid=a&password=1234567", "2|0|a|1234567"),
+    ("wifi=off&ssid=&password=12345678", "1|0||12345678"),   # a password without a name
+    ("wifi=no&ssid=a&password=", "3|0||"),
+    ("wifi=offf&ssid=a&password=", "3|0||"),
+])
+def test_wifi_switch(tmp_path_factory, parse, body, expect):
+    import subprocess as sp
+    exe = next(tmp_path_factory.getbasetemp().rglob("pc"))
+    out = sp.run([str(exe), body, "wifi"], capture_output=True, text=True).stdout
     assert out == expect

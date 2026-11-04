@@ -78,15 +78,16 @@ const [page_path, settings, rules, steps] = process.argv.slice(2);
     headings: [...document.querySelectorAll('#fields h2')].map((h) => h.textContent),
     intros: [...document.querySelectorAll('#fields p.intro')].map((p) => p.textContent),
     units: [...document.querySelectorAll('#fields .unit span')].map((s) => s.textContent),
-    port: [...document.getElementById('f-mail_port').options].map((o) => [o.value, o.text]),
-    alerts: [...document.getElementById('f-alerts').options].map((o) => o.value),
-    setup: [...document.getElementById('f-setup').options].map((o) => [o.value, o.text]),
-    setupValue: document.getElementById('f-setup').value,
+    port: [...(document.getElementById('f-mail_port')?.options || [])].map((o) => [o.value, o.text]),
+    alerts: [...(document.getElementById('f-alerts')?.options || [])].map((o) => o.value),
+    setup: [...(document.getElementById('f-setup')?.options || [])].map((o) => [o.value, o.text]),
+    setupValue: document.getElementById('f-setup')?.value,
     extras: [...document.querySelectorAll('input[data-extra]')].map((c) => [c.value, c.checked]),
     starred: [...document.querySelectorAll('label[data-req="1"]')].map((l) => l.htmlFor),
   }));
   for (const [sel, value] of JSON.parse(steps)) {
     if (value === true) await page.check(sel); else if (value === false) await page.uncheck(sel);
+    else if (typeof value === 'object') await page.selectOption(sel, value.select);
     else await page.fill(sel, value);
   }
   await page.click('#save');
@@ -110,8 +111,8 @@ def run_page(tmp_path_factory):
     if probe.returncode:
         pytest.skip("no Playwright for node")
 
-    def run(steps):
-        out = subprocess.run([node, str(script), str(PAGE), SETTINGS, RULES, json.dumps(steps)],
+    def run(steps, settings=SETTINGS, rules=RULES):
+        out = subprocess.run([node, str(script), str(PAGE), settings, rules, json.dumps(steps)],
                              env=env, capture_output=True, text=True, timeout=60)
         assert out.returncode == 0, out.stderr
         return json.loads(out.stdout.strip().splitlines()[-1])
@@ -146,3 +147,21 @@ def test_page_writes_choice_extras_and_decimal_step(run_page):
 
 def test_page_writes_nothing_while_a_field_fails(run_page):
     assert run_page([["#f-ssid", "net"], ["#f-every", "61"]])["writes"] == []
+
+
+# required_if: the network name is required only while the WiFi switch is on.
+WIFI_SETTINGS = enc([("wifi", "on"), ("ssid", ""), ("password_set", "0")])
+WIFI_RULES = enc([
+    ("wifi", enc({"section": "WiFi", "label": "WiFi", "options": "on,off"})),
+    ("ssid", enc({"label": "Network name", "maxlength": "32", "required_if": "wifi=on"})),
+    ("password", enc({"label": "Password", "minlength": "8"})),
+])
+
+
+def test_page_requires_a_field_only_while_another_holds_a_value(run_page):
+    on = run_page([], WIFI_SETTINGS, WIFI_RULES)
+    assert on["drawn"]["starred"] == ["f-ssid"]
+    assert on["writes"] == []                                # on, no network name: nothing
+    off = run_page([["#f-wifi", {"select": "off"}]], WIFI_SETTINGS, WIFI_RULES)
+    assert len(off["writes"]) == 1
+    assert dict(up.parse_qsl(off["writes"][0], keep_blank_values=True))["wifi"] == "off"

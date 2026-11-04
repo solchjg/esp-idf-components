@@ -25,10 +25,21 @@ static const char FORM_HEAD[] =
     ":user-invalid{outline:2px solid #b91c1c}#msg{color:#b91c1c}</style></head>"
     "<body><h1>WiFi setup</h1><p>Fields marked * are required.</p>"
     "<form method=\"post\" action=\"/connect\">"
+#if CONFIG_PORTAL_WIFI_SWITCH
+    "<p><label>WiFi <select name=\"wifi\"><option value=\"on\">On</option>"
+    "<option value=\"off\">Off: no network, set up and read over Bluetooth</option>"
+    "</select></label></p>"
+#endif
     "<p><label>Network name <input name=\"ssid\" maxlength=\"32\" required></label></p>"
     "<p><label>Password (empty for an open network, else 8 – 63 characters) "
     "<input name=\"password\" type=\"password\" minlength=\"8\" maxlength=\"63\">"
-    "</label></p>";
+    "</label></p>"
+#if CONFIG_PORTAL_WIFI_SWITCH
+    // The network name is required only with WiFi on.
+    "<script>(function(f){function s(){f.ssid.required=f.wifi.value!=='off'}"
+    "f.wifi.addEventListener('change',s);s()})(document.forms[0])</script>"
+#endif
+    ;
 // The submit button, the closing tags and the checking script (FR-13.8, FR-13.9).
 extern const char FORM_TAIL[] asm("_binary_form_tail_html_start");
 
@@ -66,12 +77,18 @@ static esp_err_t post_connect(httpd_req_t *req)
     body[len] = '\0';
 
     pc_creds_t creds;
+    bool wifi_on = true;
+#if CONFIG_PORTAL_WIFI_SWITCH
+    pc_result_t res = pc_parse_wifi(body, (size_t)len, &creds, &wifi_on);
+#else
     pc_result_t res = pc_parse_form(body, (size_t)len, &creds);
+#endif
     if (res != PC_OK) {
         httpd_resp_set_status(req, "400 Bad Request");
         httpd_resp_set_type(req, "text/plain");
-        return httpd_resp_sendstr(req, res == PC_BAD_SSID ? "invalid field: ssid"
-                                                          : "invalid field: password");
+        return httpd_resp_sendstr(req, res == PC_BAD_SSID   ? "invalid field: ssid"
+                                       : res == PC_BAD_WIFI ? "invalid field: wifi"
+                                                            : "invalid field: password");
     }
     const char *bad = extra_fields && extra_fields->take
                           ? extra_fields->take(body, (size_t)len) : NULL;
@@ -82,12 +99,17 @@ static esp_err_t post_connect(httpd_req_t *req)
         httpd_resp_set_type(req, "text/plain");
         return httpd_resp_sendstr(req, msg);
     }
-    char esc[6 * PC_SSID_MAX + 1], page[512];
+    char esc[6 * PC_SSID_MAX + 1], what[6 * PC_SSID_MAX + 32], page[512];
     pc_html_escape(creds.ssid, esc, sizeof esc);
+    if (wifi_on) {
+        snprintf(what, sizeof what, "Connecting to %s.", esc);
+    } else {
+        snprintf(what, sizeof what, "WiFi is off.");
+    }
     snprintf(page, sizeof page,
              "<!doctype html><html><head><meta charset=\"utf-8\">"
              "<title>" CONFIG_PORTAL_PAGE_TITLE "</title>"
-             "</head><body><p>Saved. Connecting to %s.</p></body></html>", esc);
+             "</head><body><p>Saved. %s</p></body></html>", what);
     httpd_resp_set_type(req, "text/html");
     esp_err_t err = httpd_resp_sendstr(req, page);
     if (submit_cb) {

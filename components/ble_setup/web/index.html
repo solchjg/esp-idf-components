@@ -123,6 +123,14 @@ function updateGroups() {
     el.required = filled.has(el.dataset.group) && secrets[el.name] !== 'stored';
     el.labels[0].dataset.req = el.required ? '1' : '';
   }
+  // A field with `required_if` (<name>=<value>) is required while that field holds that value.
+  for (const el of fieldsEl()) {
+    if (!el.dataset.requiredIf) continue;
+    const [n, v] = el.dataset.requiredIf.split('=');
+    const other = $('fields').querySelector(`[name="${n}"]`);
+    el.required = !!other && other.value === v;
+    el.labels[0].dataset.req = el.required ? '1' : '';
+  }
 }
 
 // A field with `extras`: the choice is the first item of its value, each extra
@@ -188,6 +196,7 @@ function render(body) {
     label.dataset.req = input.required ? '1' : '';
     if (r.has('group')) input.dataset.group = r.get('group');
     if (r.has('need')) input.dataset.need = '1';
+    if (r.has('required_if')) input.dataset.requiredIf = r.get('required_if');
     const changed = () => {
       draft.set(name, valueOf(input));
       // The device's verdict was on the old values (a rule may span fields).
