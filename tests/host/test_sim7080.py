@@ -148,7 +148,7 @@ def test_attach_script_rat(run, rat, cmd):
     assert run("script", "hologram", "", rat).splitlines()[4] == cmd
 
 
-@pytest.mark.parametrize("apn,plmn,rat", [('a"b', "", 0), ("", "", 0), ("a" * 63, "", 0),
+@pytest.mark.parametrize("apn,plmn,rat", [('a"b', "", 0), ("", "", 0), ("a" * 64, "", 0),
                                           ("iot.1nce.net", "12", 0), ("iot.1nce.net", "", 3)])
 def test_attach_script_refuses_bad_settings(run, apn, plmn, rat):
     assert run("script", apn, plmn, rat).splitlines() == ["= -1"]
@@ -157,6 +157,7 @@ def test_attach_script_refuses_bad_settings(run, apn, plmn, rat):
 def test_apn_and_plmn_rules(run):
     assert run("apn", "iot.1nce.net").strip() == "1"
     assert run("apn", "a b").strip() == "0"
+    assert run("apn", "a" * 63).strip() == "1"
     assert run("plmn", "").strip() == "1"
     assert run("plmn", "311480").strip() == "1"
 

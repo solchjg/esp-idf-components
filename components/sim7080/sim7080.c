@@ -173,8 +173,9 @@ esp_err_t sim7080_attach(const sim7080_attach_cfg_t *cfg, uint32_t limit_ms, sim
             return err;
         }
     }
-    // The lock (AT+COPS=1) can take a network search: up to 120 s.
-    esp_err_t err = until_sim_up(cops, 120000);
+    // The lock (AT+COPS=1) can take a network search: never longer than the
+    // registration window, so a refused network fails within limit_ms.
+    esp_err_t err = until_sim_up(cops, limit_ms);
     if (err == ESP_OK) {
         err = until_sim_up(cpsms, AT_TIMEOUT_MS);
     }
