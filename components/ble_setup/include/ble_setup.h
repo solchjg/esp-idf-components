@@ -19,7 +19,9 @@
 //   result    read/notify, MITM-paired   what on_apply() answered ("none" first)
 //   control   write, MITM-paired         "apply", "done", "read=<offset>", "form=<offset>",
 //                                        "hist=<n>", "range=<text>", "forget"
-//                                        (erase every bond, this central's too)
+//                                        (erase every bond, this central's too),
+//                                        "time=<ms since 1970 UTC>" (the page
+//                                        sends the phone's clock on connecting)
 //   history   read, MITM-paired          read_history() from line n (0 on connecting)
 #pragma once
 
@@ -76,6 +78,10 @@ typedef struct {
     // `control` "range=<text>": the filter later history reads apply; false
     // refuses the write. The text is not terminated.
     bool (*on_history_range)(const char *text, size_t len);
+    // Optional: `control` "time=<ms>", the phone's clock in ms since 1970 UTC,
+    // written by the page right after pairing (NULL refuses the write; the
+    // page carries on).
+    void (*on_time)(int64_t epoch_ms);
 } ble_setup_config_t;
 
 // Controller and host up, advertising. cfg must outlive the run.

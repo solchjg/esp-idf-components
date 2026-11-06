@@ -37,11 +37,16 @@ typedef enum {
     BS_CTRL_RANGE,    // `range=<text>`: the app's filter for `history`
     BS_CTRL_FORGET,   // `forget`: erase every bond
     BS_CTRL_FORM,     // `form=<offset>`: later `settings` reads page the form description
+    BS_CTRL_TIME,     // `time=<ms since 1970 UTC>`: the phone's clock, for the app
 } bs_ctrl_t;
 
 // Parse a `control` write. *arg gets the number of BS_CTRL_READ, BS_CTRL_FORM
-// and BS_CTRL_HIST, and for BS_CTRL_RANGE the offset in v where <text> begins.
+// and BS_CTRL_HIST, and for BS_CTRL_RANGE and BS_CTRL_TIME the offset in v
+// where <text> or the number begins.
 bs_ctrl_t bs_control(const char *v, size_t len, uint32_t *arg);
+
+// The number of a BS_CTRL_TIME write (1 – 15 digits, as bs_control checked).
+int64_t bs_time_ms(const char *v, size_t len);
 
 // The page of `all` that a `settings` read returns: at most BS_ATTR_MAX bytes
 // from off (none past the end). Returns its length; *start points into all.

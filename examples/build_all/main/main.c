@@ -13,6 +13,7 @@
 #include "ota_rx.h"
 #include "portal.h"
 #include "rm67162.h"
+#include "rv8803.h"
 #include "sim7080.h"
 #include "st7789.h"
 #include "status_http.h"

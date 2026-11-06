@@ -1,5 +1,6 @@
 #include "time_sync.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
@@ -54,10 +55,19 @@ void time_sync_stop(void)
 
 esp_err_t time_sync_set(int64_t epoch_s)
 {
-    if (!ts_epoch_valid(epoch_s)) {
+    if (epoch_s > INT64_MAX / 1000 || epoch_s < INT64_MIN / 1000) {
         return ESP_ERR_INVALID_ARG;
     }
-    struct timeval tv = {.tv_sec = (time_t)epoch_s};
+    return time_sync_set_ms(epoch_s * 1000);
+}
+
+esp_err_t time_sync_set_ms(int64_t epoch_ms)
+{
+    if (epoch_ms < 0 || !ts_epoch_valid(epoch_ms / 1000)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    struct timeval tv = {.tv_sec = (time_t)(epoch_ms / 1000),
+                         .tv_usec = (suseconds_t)(epoch_ms % 1000 * 1000)};
     if (settimeofday(&tv, NULL) != 0) {
         return ESP_FAIL;
     }
