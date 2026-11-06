@@ -1,4 +1,4 @@
-// AXP2101 power management IC on I2C: switches the DC3 and BLDO1/2 rails and
+// AXP2101 power management IC on I2C: switches the DC3, ALDO3 and BLDO1/2 rails and
 // reads the battery voltage and charger state. Board-agnostic: the bus comes
 // from axp2101_config_t. It joins the master bus already open on the port or
 // opens its own and releases it at axp2101_stop, so a board whose PMU shares
