@@ -316,6 +316,11 @@ async function connect() {
   } finally {
     busy = false;
   }
+  // The phone's clock, for a device with no other way to learn the time
+  // (ble_setup.h "time="); a device that does not take it refuses the write.
+  try {
+    await chars.control.writeValueWithResponse(enc.encode(`time=${Date.now()}`));
+  } catch (e) { /* refused: nothing to do */ }
   $('done').disabled = false; $('save').disabled = false; $('hdl').disabled = false; $('forget').disabled = false;
   $('hist').hidden = !chars.history;
   status(`Connected to ${device.name}.`);

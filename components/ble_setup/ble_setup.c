@@ -222,6 +222,12 @@ static int access(uint16_t conn_handle, uint16_t attr_handle,
         case BS_CTRL_HIST:
             session.hist_line = off;
             return 0;
+        case BS_CTRL_TIME:
+            if (!cfg->on_time) {
+                return BLE_ATT_ERR_VALUE_NOT_ALLOWED;
+            }
+            cfg->on_time(bs_time_ms(chunk, got));
+            return 0;
         case BS_CTRL_RANGE:
             if (!cfg->on_history_range || !cfg->on_history_range(chunk + off, got - off)) {
                 return BLE_ATT_ERR_VALUE_NOT_ALLOWED;

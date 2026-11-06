@@ -8,6 +8,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import time
 import urllib.parse as up
 
 import pytest
@@ -44,7 +45,9 @@ const [page_path, settings, rules, steps] = process.argv.slice(2);
   const browser = await chromium.launch();
   const page = await browser.newPage();
   const writes = [];
+  const controls = [];
   await page.exposeFunction('logWrite', (w) => writes.push(w));
+  await page.exposeFunction('logControl', (w) => controls.push(w));
   await page.addInitScript(({ settings, rules }) => {
     const enc = new TextEncoder(), dec = new TextDecoder();
     let mode = 'read', off = 0, staged = '';
@@ -60,6 +63,7 @@ const [page_path, settings, rules, steps] = process.argv.slice(2);
       async writeValueWithResponse(v) {
         const s = dec.decode(v);
         if (uuid.startsWith('6e0a0003')) { staged += s; return; }
+        window.logControl(s);
         const m = s.match(/^(read|form)=(\d+)$/);
         if (m) { mode = m[1]; off = +m[2]; return; }
         if (s === 'apply') { window.logWrite(staged); staged = ''; }
@@ -92,7 +96,7 @@ const [page_path, settings, rules, steps] = process.argv.slice(2);
   }
   await page.click('#save');
   await page.waitForTimeout(300);
-  console.log(JSON.stringify({ drawn, writes }));
+  console.log(JSON.stringify({ drawn, writes, controls }));
   await browser.close();
 })();
 """
@@ -130,6 +134,14 @@ def test_page_draws_the_described_form(run_page):
     assert d["setupValue"] == "std"
     assert d["extras"] == [["quick", False], ["cycle", True]]
     assert d["starred"] == ["f-ssid", "f-setup"]
+
+
+def test_page_sends_the_phones_clock_on_connecting(run_page):
+    before = int(time.time() * 1000)
+    controls = run_page([])["controls"]
+    times = [c for c in controls if c.startswith("time=")]
+    assert len(times) == 1, controls
+    assert before - 1000 <= int(times[0][5:]) <= before + 60000
 
 
 def test_page_writes_choice_extras_and_decimal_step(run_page):

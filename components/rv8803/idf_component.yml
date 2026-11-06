@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "RV-8803-C7 temperature-compensated real-time clock on I2C (0x32): UTC time with 1/100 s, lost-time flag, rate trim; joins an open bus (needs esp_try)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
