@@ -1,4 +1,5 @@
 // Build check only: links every component's public API into one image.
+#include "axp2101.h"
 #include "ble_setup.h"
 #include "bme280.h"
 #include "button.h"
@@ -12,12 +13,14 @@
 #include "ota_rx.h"
 #include "portal.h"
 #include "rm67162.h"
+#include "sim7080.h"
 #include "st7789.h"
 #include "status_http.h"
 #include "tdisplay_s3.h"
 #include "tdisplay_s3_amoled.h"
 #include "text.h"
 #include "time_sync.h"
+#include "tsim7080g_s3.h"
 #include "udp_log.h"
 #include "wifi_net.h"
 

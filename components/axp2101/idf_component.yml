@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "AXP2101 PMU on I2C: DC3 and BLDO1/2 rails, battery voltage and charger state; joins an open bus or opens and releases its own (needs esp_try)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
