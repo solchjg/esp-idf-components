@@ -13,7 +13,8 @@ static uint16_t buf[536 * 32];
 // argv: <large|small> <text> <w> : prints the font's cell and the lit pixels' box
 int main(int argc, char **argv)
 {
-    const text_font_t *f = !strcmp(argv[1], "small") ? &text_font_small : &text_font_large;
+    const text_font_t *f = !strcmp(argv[1], "small") ? &text_font_small
+                           : !strcmp(argv[1], "tiny") ? &text_font_tiny : &text_font_large;
     int w = atoi(argv[3]);
     text_font_render(f, argv[2], 1, 0, buf, w);
     int x0 = w, x1 = -1, y0 = f->h, y1 = -1;
@@ -39,7 +40,7 @@ int main(int argc, char **argv)
 @pytest.fixture(scope="module")
 def run(compile_harness):
     return compile_harness("text", HARNESS,
-                           ["text/text.c", "text/font16x32.c", "text/font12x24.c"],
+                           ["text/text.c", "text/font16x32.c", "text/font12x24.c", "text/font6x10.c"],
                            ["text/include"])
 
 
@@ -60,3 +61,10 @@ def test_space_is_blank_and_unknown_is_question_mark(run):
     assert run("small", " ", 12).split()[3:] == ["12", "-1", "24", "-1"]
     q = run("small", "?", 12).split()[3:]
     assert run("small", "\x7f", 12).split()[3:] == q
+
+
+def test_tiny_font_cell_and_42_characters_fit_252_pixels(run):
+    # tdisplay-s3-amoled FR-35.16: 42 characters across 252 of the OLED's 256 pixels.
+    cell_w, cell_h, width, x0, x1, y0, y1 = map(int, run("tiny", "W" * 42, 252).split())
+    assert (cell_w, cell_h) == (6, 10)
+    assert width == 252 and 0 <= x0 and x1 <= 251 and 0 <= y0 and y1 < 10

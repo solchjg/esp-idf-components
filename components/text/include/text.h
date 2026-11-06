@@ -14,9 +14,14 @@
 #define FONT_SMALL_W 12  // FR-6.14
 #define FONT_SMALL_H 24
 
-// Bit 15 of each row is the leftmost pixel (font16x32.c, font12x24.c, generated).
+#define FONT_TINY_W 6  // a 256 x 64 OLED's six lines (tdisplay-s3-amoled FR-35.16)
+#define FONT_TINY_H 10
+
+// Bit 15 of each row is the leftmost pixel (font16x32.c, font12x24.c,
+// font6x10.c, generated).
 extern const uint16_t font16x32[FONT_GLYPHS][FONT_H];
 extern const uint16_t font12x24[FONT_GLYPHS][FONT_SMALL_H];
+extern const uint16_t font6x10[FONT_GLYPHS][FONT_TINY_H];
 
 // A cell font: w x h pixels per glyph, rows[glyph * h + y].
 typedef struct {
@@ -26,6 +31,7 @@ typedef struct {
 
 extern const text_font_t text_font_large;  // 16x32
 extern const text_font_t text_font_small;  // 12x24
+extern const text_font_t text_font_tiny;   // 6x10
 
 // Width in pixels of s in the 16x32 font.
 int text_width(const char *s);

@@ -14,6 +14,7 @@
 #include "portal.h"
 #include "rm67162.h"
 #include "sim7080.h"
+#include "ssd1322.h"
 #include "st7789.h"
 #include "status_http.h"
 #include "tdisplay_s3.h"

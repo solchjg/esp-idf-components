@@ -32,7 +32,8 @@ only the ones it needs and wires them together in its own `app_main`.
 | `loop420` | 4-20 mA loop, pure C: current from a shunt voltage, NAMUR NE43 fault limits (3.6 / 21.0 mA), linear scale to a value | — | — |
 | `st7789` | ST7789 panel on an 8-bit i80 bus, configured by `st7789_config_t` | — | `esp_try` |
 | `rm67162` | RM67162 AMOLED panel on a QSPI bus, configured by `rm67162_config_t`; same API shape as `st7789` | — | `esp_try` |
-| `text` | 16 × 32 and 12 × 24 bitmap font renderer, pure C | — | — |
+| `ssd1322` | SSD1322 256 × 64 grey OLED on 4-wire SPI, configured by `ssd1322_config_t`, joining an SPI bus another device already brought up; a pure core holds the init sequence, the column window and the 4-bit packing | — | `esp_try` |
+| `text` | 16 × 32, 12 × 24 and 6 × 10 bitmap font renderer, pure C | — | — |
 | `esp_try` | `ESP_TRY`: return an `esp_err_t` instead of aborting | — | — |
 | `tdisplay_s3` | T-Display-S3 pin and panel constants, header only | — | — |
 | `tdisplay_s3_amoled` | T-Display-S3 AMOLED 1.91" pin and panel constants, header only | — | — |
