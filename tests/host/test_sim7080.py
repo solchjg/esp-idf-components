@@ -68,7 +68,8 @@ int main(int argc, char **argv)
     } else if (!strcmp(op, "gnss")) {
         sim7080_gnss_t g = {0};
         int r = sim7080_parse_cgnsinf(argv[2], &g);
-        printf("%d %d %.5f %.5f\n", r, g.fix, g.fix ? g.lat : 0, g.fix ? g.lon : 0);
+        printf("%d %d %.5f %.5f %lld\n", r, g.fix, g.fix ? g.lat : 0, g.fix ? g.lon : 0,
+               (long long)g.utc);
     } else if (!strcmp(op, "apn")) {
         printf("%d\n", sim7080_apn_valid(argv[2]));
     } else {
@@ -243,9 +244,15 @@ def test_firmware_revision(run):
 
 def test_gnss_fix(run):
     answer = "+CGNSINF: 1,1,20261106044010.000,40.71280,-74.00600,10.0,0.0,0.0,1,,1.1,1.4,0.9\r\nOK"
-    assert run("gnss", answer).strip() == "0 1 40.71280 -74.00600"
+    unix = 1793940010  # 2026-11-06 04:40:10 UTC
+    assert run("gnss", answer).strip() == f"0 1 40.71280 -74.00600 {unix}"
 
 
-@pytest.mark.parametrize("answer", ["+CGNSINF: 1,0,,,,,,,\r\nOK", "+CGNSINF: 0,,,,,\r\nOK"])
+@pytest.mark.parametrize("answer", [
+    "+CGNSINF: 1,0,,,,,,,\r\nOK",                                  # still seeking
+    "+CGNSINF: 0,,,,,\r\nOK",                                      # GNSS off
+    "+CGNSINF: 1,1,,40.71280,-74.00600,10.0\r\nOK",                # no UTC time
+    "+CGNSINF: 1,1,19800106000000.000,40.71280,-74.00600\r\nOK",   # the receiver's epoch, not a time
+])
 def test_gnss_no_fix(run, answer):
-    assert run("gnss", answer).strip() == "0 0 0.00000 0.00000"
+    assert run("gnss", answer).strip() == "0 0 0.00000 0.00000 0"
