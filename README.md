@@ -34,6 +34,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | `esp_try` | `ESP_TRY`: return an `esp_err_t` instead of aborting | — | — |
 | `tdisplay_s3` | T-Display-S3 pin and panel constants, header only | — | — |
 | `tdisplay_s3_amoled` | T-Display-S3 AMOLED 1.91" pin and panel constants, header only | — | — |
+| `tsim7080g_s3` | T-SIM7080G-S3 pin and rail constants, header only | — | — |
 
 Set Kconfig options with `idf.py menuconfig` or in the project's
 `sdkconfig.defaults`. The defaults are the T-Display-S3 webserver's values.

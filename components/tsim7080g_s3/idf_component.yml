@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "LilyGO T-SIM7080G-S3 pin and rail constants (header only)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
