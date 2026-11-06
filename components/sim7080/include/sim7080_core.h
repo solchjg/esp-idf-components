@@ -13,7 +13,7 @@
 
 #define SIM7080_CMD_MAX 96
 #define SIM7080_ATTACH_CMDS 8   // most commands sim7080_attach_script writes
-#define SIM7080_APN_MAX 62      // 3GPP TS 23.003: at most 62 octets as text here
+#define SIM7080_APN_MAX 63      // the longest APN the attach takes, as text
 #define SIM7080_GRANT_NONE (-1)
 
 // Core results.
