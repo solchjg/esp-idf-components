@@ -45,7 +45,8 @@ int main(int argc, char **argv)
     } else if (!strcmp(argv[1], "rail")) {
         int rail = atoi(argv[2]);
         uint8_t vol = rail == AXP2101_DC3 ? AXP2101_REG_DC3_VOL
-                      : rail == AXP2101_BLDO1 ? AXP2101_REG_BLDO1_VOL : AXP2101_REG_BLDO2_VOL;
+                      : rail == AXP2101_BLDO1 ? AXP2101_REG_BLDO1_VOL
+                      : rail == AXP2101_ALDO3 ? AXP2101_REG_ALDO3_VOL : AXP2101_REG_BLDO2_VOL;
         uint8_t onoff = rail == AXP2101_DC3 ? AXP2101_REG_DC_ONOFF : AXP2101_REG_LDO_ONOFF0;
         regs[vol] = (uint8_t)strtol(argv[5], 0, 0);
         regs[onoff] = (uint8_t)strtol(argv[6], 0, 0);
@@ -60,7 +61,7 @@ int main(int argc, char **argv)
 }
 """
 
-DC3, BLDO1, BLDO2 = 0, 1, 2
+DC3, BLDO1, BLDO2, ALDO3 = 0, 1, 2, 3
 
 
 @pytest.fixture(scope="module")
@@ -74,6 +75,7 @@ def run(compile_harness):
     (DC3, 3400, 106),
     (BLDO1, 3300, 28),   # the level shifter
     (BLDO2, 3300, 28),   # the GPS antenna
+    (ALDO3, 3300, 28),   # the microSD slot
     (BLDO1, 500, 0), (BLDO2, 3500, 30),
 ])
 def test_rail_codes(run, rail, mv, code):
@@ -81,7 +83,7 @@ def test_rail_codes(run, rail, mv, code):
 
 
 @pytest.mark.parametrize("rail,mv", [(DC3, 3500), (DC3, 1210), (DC3, 1550), (DC3, 450),
-                                     (BLDO1, 3600), (BLDO2, 3250), (3, 3300)])
+                                     (BLDO1, 3600), (BLDO2, 3250), (ALDO3, 3600), (4, 3300)])
 def test_rail_codes_out_of_range(run, rail, mv):
     assert int(run("code", rail, mv)) == -1
 
@@ -115,6 +117,14 @@ def test_bldo2_on_then_off(run):
     assert out == ["w 97 fc", "w 90 30", "= 0"]
     out = run("rail", BLDO2, 3300, 0, "0xfc", "0x30").splitlines()
     assert out == ["w 90 10", "= 0"]  # off: the voltage is left as it was
+
+
+def test_aldo3_on_then_off_keeps_the_bldos(run):
+    # ALDO3 (the T-SIM7080G-S3's microSD slot) is bit 2 of 0x90, beside BLDO1 (bit 4).
+    out = run("rail", ALDO3, 3300, 1, "0xe0", "0x10").splitlines()
+    assert out == ["w 94 fc", "w 90 14", "= 0"]
+    out = run("rail", ALDO3, 3300, 0, "0xfc", "0x14").splitlines()
+    assert out == ["w 90 10", "= 0"]
 
 
 def test_bad_voltage_writes_nothing(run):

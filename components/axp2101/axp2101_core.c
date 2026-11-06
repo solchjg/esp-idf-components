@@ -10,6 +10,7 @@ static const rail_regs_t RAILS[] = {
     [AXP2101_DC3] = {AXP2101_REG_DC3_VOL, AXP2101_REG_DC_ONOFF, 2, 0x7F},
     [AXP2101_BLDO1] = {AXP2101_REG_BLDO1_VOL, AXP2101_REG_LDO_ONOFF0, 4, 0x1F},
     [AXP2101_BLDO2] = {AXP2101_REG_BLDO2_VOL, AXP2101_REG_LDO_ONOFF0, 5, 0x1F},
+    [AXP2101_ALDO3] = {AXP2101_REG_ALDO3_VOL, AXP2101_REG_LDO_ONOFF0, 2, 0x1F},
 };
 
 static bool known(axp2101_rail_t rail)
@@ -36,7 +37,7 @@ int axp2101_rail_code(axp2101_rail_t rail, unsigned mv)
         }
         return AXP2101_E_ARG;
     }
-    // BLDO1/2: 0.5 – 3.5 V in 100 mV steps.
+    // ALDO3, BLDO1/2: 0.5 – 3.5 V in 100 mV steps.
     if (mv >= 500 && mv <= 3500 && mv % 100 == 0) {
         return (int)(mv - 500) / 100;
     }
