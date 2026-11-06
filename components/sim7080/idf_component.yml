@@ -1,0 +1,6 @@
+version: "0.1.0"
+description: "SIMCom SIM7080G LTE-M modem over esp_modem: PWRKEY wake, full attach with network lock and PSM request, PSM resume and grant, network time, GNSS, PPP; a pure core builds the AT commands and parses the answers"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
+  espressif/esp_modem: "^2.1.0"
