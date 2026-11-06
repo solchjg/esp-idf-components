@@ -1,3 +1,7 @@
+// flash_ring, the ESP-IDF side: partition access, the lock, and the clear mark
+// in NVS. Where the next record goes (and where a scan finds the end) is the
+// pure flash_ring_core.c.
+
 #include "flash_ring.h"
 
 #include "freertos/task.h"
@@ -25,6 +29,8 @@ esp_err_t flash_ring_open(flash_ring_t *r)
                               .record_size = r->payload_size + FR_TRAILER_SIZE};
         r->lock = xSemaphoreCreateMutex();
     }
+    // The write position survives deep sleep in the caller's RTC memory; after
+    // a reset (bad magic or out of range) it is found again by scanning.
     flash_ring_saved_t *s = r->saved;
     if (s->magic != SAVED_MAGIC || s->pos.sector >= r->geom.sectors ||
         s->pos.slot >= fr_per_sector(&r->geom)) {
@@ -42,7 +48,7 @@ esp_err_t flash_ring_append(flash_ring_t *r, const void *payload)
     }
     xSemaphoreTake(r->lock, portMAX_DELAY);
     fr_pos_t *pos = &r->saved->pos;
-    if (pos->slot == 0) {
+    if (pos->slot == 0) {  // the first record of a sector: erase it, reusing the oldest when full
         err = esp_partition_erase_range(r->part, pos->sector * FR_SECTOR_SIZE, FR_SECTOR_SIZE);
     }
     if (err == ESP_OK) {
@@ -99,7 +105,7 @@ esp_err_t flash_ring_clear(flash_ring_t *r, void (*progress)(void))
         for (size_t i = 0; blank && i < sizeof buf / sizeof buf[0]; i++) {
             blank = buf[i] == 0xFFFFFFFFu;
         }
-        if (err == ESP_OK && !blank) {
+        if (err == ESP_OK && !blank) {  // erasing only what is used saves time and wear
             err = esp_partition_erase_range(r->part, s * FR_SECTOR_SIZE, FR_SECTOR_SIZE);
         }
         if (progress) {
