@@ -1,3 +1,9 @@
+// ota_rx: POST /ota {"url": "http://..."} answers 202 at once, then a task
+// downloads the image into the other OTA slot and reports the outcome through
+// hooks->on_result. Only one download runs at a time (409 otherwise), and the
+// app can refuse one through hooks->hold. Selecting the new slot and
+// restarting are the app's decision. Request parsing is the pure ota_core.c.
+
 #include "ota_rx.h"
 
 #include <stdio.h>
@@ -31,6 +37,8 @@ static void note(const char *uri, int status)
     }
 }
 
+// The download task: one HTTP GET streamed into the slot in CHUNK pieces.
+// Any failure leaves a reason; esp_ota_end validates the finished image.
 static void download(void *arg)
 {
     char reason[48] = "";

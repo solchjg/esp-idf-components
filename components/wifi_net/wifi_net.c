@@ -11,6 +11,11 @@
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 
+// wifi_net: one WiFi interface used either as a station or as an open SoftAP
+// (each start switches the mode), the station's credentials in NVS under
+// CONFIG_WIFI_NET_NVS_NAMESPACE (the driver's own flash storage is off), and
+// the station's events (address, lost link) through one callback.
+//
 // Every call reports its error (ESP_TRY), never aborts: a restart outside T10,
 // T11, T13 and the watchdog is prohibited (FSD §5.3).
 

@@ -1,3 +1,9 @@
+// notecard, the ESP-IDF side: the hooks Blues' note-c needs (memory, delays,
+// a millisecond clock, and the Notecard's serial-over-I2C framing on the I2C
+// master driver), the bus (shared with another driver on the same port, or
+// opened here), and one request line in, one answer line out. Building
+// requests and reading answers is the pure notecard_core.c.
+
 #include "notecard.h"
 
 #include <stdlib.h>

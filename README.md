@@ -1,7 +1,8 @@
 # esp-idf-components
 
 Reusable ESP-IDF v6 components, first written for the LilyGO T-Display-S3
-webserver (`solchjg/tdisplay-s3-webserver`). Each directory under `components/`
+webserver (`solchjg/tdisplay-s3-webserver`) and now shared with the T-Display-S3
+AMOLED weather station (`solchjg/tdisplay-s3-amoled`). Each directory under `components/`
 is a plain ESP-IDF component with its own `idf_component.yml`; a project takes
 only the ones it needs and wires them together in its own `app_main`.
 
@@ -49,8 +50,10 @@ Set Kconfig options with `idf.py menuconfig` or in the project's
   `tools/bdf_to_c.py` (`bdf_to_c.py ter-u24b.bdf 12x24` for the small one); regenerate
   them, never hand-edit them.
 
-Comments that cite "FSD §n" refer to the requirement in the
-tdisplay-s3-webserver FSD that the component was built to.
+Comments that cite "FSD §n" or a requirement ID refer to the FSD of the
+project the component was built for, `tdisplay-s3-webserver` or
+`tdisplay-s3-amoled`; the AMOLED FSD keeps the webserver's numbers and adds
+its own sections, so an ID means the same in both.
 
 ## Using them
 
@@ -69,10 +72,14 @@ dependencies:
     version: v0.1.0
 ```
 
-Remember the "Also needs" column: list those components too.
+Remember the "Also needs" column: list those components too. Tag `v0.1.0`
+holds only twelve of them (`button`, `esp_try`, `identity`, `mdns_name`,
+`ota_rx`, `portal`, `st7789`, `status_http`, `tdisplay_s3`, `text`, `udp_log`,
+`wifi_net`); until the next tag, pin a commit of `main` (`version: <commit sha>`)
+to get the others.
 
 **Git submodule** (when the project's host tests compile these sources, as the
-T-Display-S3 webserver does):
+T-Display-S3 webserver and the AMOLED weather station do):
 
 ```bash
 git submodule add https://github.com/solchjg/esp-idf-components.git shared

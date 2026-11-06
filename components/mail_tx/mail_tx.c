@@ -1,3 +1,8 @@
+// mail_tx, the ESP-IDF side: the TLS connection (implicit TLS on port 465,
+// STARTTLS on any other port, certificates checked against the CA bundle),
+// the overall deadline, and the loop that carries bytes between the socket and
+// the pure SMTP dialogue in mail_tx_core.c, which decides every command.
+
 #include "mail_tx.h"
 
 #include <errno.h>
@@ -102,6 +107,9 @@ static int tls_connect(conn_t *c, const char *host, uint16_t port, bool plain)
     return esp_tls_conn_new_sync(host, (int)strlen(host), port, &cfg, c->tls);
 }
 
+// One SMTP session: connect, then feed what the server says to the core and
+// do what it answers (send, start TLS, done, failed) until the message is
+// accepted or the deadline passes.
 static mt_reason_t session(conn_t *c, const mail_tx_server_t *server, mt_msg_t *m,
                            char *out, size_t cap)
 {

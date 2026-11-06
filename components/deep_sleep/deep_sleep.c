@@ -1,3 +1,8 @@
+// deep_sleep: arms the timer and the optional wake key, runs the app's prepare
+// callbacks (panel off, WiFi off, ...), then sleeps; after the wake, tells the
+// app why it woke. Period checks and the wake cause are the pure
+// deep_sleep_core.c.
+
 #include "deep_sleep.h"
 
 #include <stdbool.h>
@@ -57,6 +62,8 @@ static esp_err_t arm_button(void)
 #endif
 }
 
+// Returns only on failure: an invalid period or a wake source that would not arm.
+// A failing prepare callback is logged and the sleep goes ahead.
 esp_err_t deep_sleep_for(uint32_t seconds)
 {
     if (!ds_period_valid(seconds, CONFIG_DEEP_SLEEP_MIN_S, CONFIG_DEEP_SLEEP_MAX_S)) {
