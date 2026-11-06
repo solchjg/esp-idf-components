@@ -97,7 +97,9 @@ int sim7080_parse_cgmr(const char *answer, char *rev, size_t size);
 typedef struct {
     bool fix;
     double lat, lon;
+    int64_t utc;  // the fix's UTC time as Unix seconds; 0 without a fix
 } sim7080_gnss_t;
 
-// "+CGNSINF: <run>,<fix>,<utc>,<lat>,<lon>,...".
+// "+CGNSINF: <run>,<fix>,<utc>,<lat>,<lon>,...", <utc> as yyyyMMddhhmmss.sss.
+// A fix needs a fix status, a valid UTC time and a place on the globe.
 int sim7080_parse_cgnsinf(const char *answer, sim7080_gnss_t *out);
