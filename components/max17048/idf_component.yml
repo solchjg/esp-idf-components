@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "MAX17048 fuel gauge on I2C (0x36): cell voltage and state of charge; joins an open bus (needs esp_try)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
