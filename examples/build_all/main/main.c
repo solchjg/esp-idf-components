@@ -7,6 +7,7 @@
 #include "esp_try.h"
 #include "identity.h"
 #include "mail_tx.h"
+#include "max17048.h"
 #include "mdns_name.h"
 #include "notecard.h"
 #include "ntfy_tx.h"
