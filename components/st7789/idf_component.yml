@@ -1,5 +1,5 @@
-version: "0.1.0"
-description: "Board-agnostic ST7789 driver on an 8-bit i80 bus via esp_lcd (needs esp_try)"
+version: "0.2.0"
+description: "Board-agnostic ST7789 driver on an 8-bit i80 bus or 4-wire SPI via esp_lcd (needs esp_try)"
 url: https://github.com/solchjg/esp-idf-components
 dependencies:
   idf: ">=6.0.0"

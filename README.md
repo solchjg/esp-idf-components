@@ -32,7 +32,7 @@ only the ones it needs and wires them together in its own `app_main`.
 | `bme280` | BME280 temperature, humidity and pressure on I2C, one forced reading per call, configured by `bme280_config_t` | — | `esp_try` |
 | `ads1115` | ADS1115 16-bit ADC on I2C, single-shot conversions and their mean in µV; joins a bus another driver opened on the port, or opens its own | — | `esp_try` |
 | `loop420` | 4-20 mA loop, pure C: current from a shunt voltage, NAMUR NE43 fault limits (3.6 / 21.0 mA), linear scale to a value | — | — |
-| `st7789` | ST7789 panel on an 8-bit i80 bus, configured by `st7789_config_t` | — | `esp_try` |
+| `st7789` | ST7789 panel on an 8-bit i80 bus or 4-wire SPI (joining an SPI bus another device already brought up), configured by `st7789_config_t`; the header names the settings of the T-Display-S3 and the Waveshare 1.9" 170 × 320 module; a pure core holds the colour helpers and the rectangle and band rules | — | `esp_try` |
 | `rm67162` | RM67162 AMOLED panel on a QSPI bus, configured by `rm67162_config_t`; same API shape as `st7789` | — | `esp_try` |
 | `ssd1322` | SSD1322 256 × 64 grey OLED on 4-wire SPI, configured by `ssd1322_config_t`, joining an SPI bus another device already brought up; a pure core holds the init sequence, the column window and the 4-bit packing | — | `esp_try` |
 | `text` | 16 × 32, 12 × 24 and 6 × 10 bitmap font renderer, pure C | — | — |
