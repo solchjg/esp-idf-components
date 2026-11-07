@@ -47,7 +47,7 @@ bool ssd1683_busy(void);
 // Waits until a running refresh ends; ESP_ERR_TIMEOUT after timeout_ms.
 esp_err_t ssd1683_wait(uint32_t timeout_ms);
 
-// Waits for a running refresh (up to 10 s), then deep sleep mode 1: the panel
+// Waits for a running refresh (up to 6 s), then deep sleep mode 1: the panel
 // keeps its image with no power and the controller draws almost none.
 // Holds RST high through the chip's own deep sleep.
 esp_err_t ssd1683_sleep(void);

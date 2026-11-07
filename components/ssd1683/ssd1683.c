@@ -15,7 +15,7 @@
 
 #define DONE_TIMEOUT_MS 500   // one RAM write of 15000 bytes takes 30 ms at 4 MHz
 #define RESET_TIMEOUT_MS 1000
-#define SLEEP_WAIT_MS 10000   // a full refresh takes about 4 s, slower in the cold
+#define SLEEP_WAIT_MS 6000    // a full refresh takes about 4 s (the task watchdog is 10 s)
 #define SPI_CHUNK 4096
 
 static esp_lcd_panel_io_handle_t io;
