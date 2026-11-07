@@ -14,6 +14,7 @@
 #include "ota_rx.h"
 #include "portal.h"
 #include "rm67162.h"
+#include "sim7670.h"
 #include "sim7080.h"
 #include "ssd1322.h"
 #include "st7789.h"
