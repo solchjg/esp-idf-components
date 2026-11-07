@@ -4,6 +4,7 @@
 Usage:
   bdf_to_c.py ter-u32b.bdf > components/text/font16x32.c
   bdf_to_c.py ter-u24b.bdf 12x24 > components/text/font12x24.c
+  bdf_to_c.py ter-u16b.bdf 8x16 > components/text/font8x16.c
   bdf_to_c.py 6x10.bdf 6x10 > components/text/font6x10.c
 
 Each glyph is H rows of uint16_t, bit 15 = leftmost pixel (cells up to 16
@@ -26,6 +27,7 @@ MISC_FIXED = (
 SOURCES = {
     (16, 32): ("ter-u32b.bdf", TERMINUS),
     (12, 24): ("ter-u24b.bdf", TERMINUS),
+    (8, 16): ("ter-u16b.bdf", TERMINUS),
     (6, 10): ("6x10.bdf", MISC_FIXED),
 }
 
