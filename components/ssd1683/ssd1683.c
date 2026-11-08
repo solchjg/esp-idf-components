@@ -17,6 +17,7 @@
 #define DONE_TIMEOUT_MS 500   // one RAM write of 15000 bytes takes 30 ms at 4 MHz
 #define RESET_TIMEOUT_MS 1000
 #define RESET_LOW_US 2000
+#define PRESENT_WAIT_US 2000  // BUSY rises within about 15 us of the software reset
 #define SLEEP_WAIT_MS 6000    // a full refresh takes about 4 s (the task watchdog is 10 s)
 #define SPI_CHUNK 4096
 
@@ -140,7 +141,14 @@ static esp_err_t reset(void)
     gpio_set_level(rst_gpio, 1);
     vTaskDelay(pdMS_TO_TICKS(10) + 1);  // at least 10 ms at any tick rate
     ESP_TRY(cmd(SSD1683_SW_RESET));
-    vTaskDelay(1);
+    // A fitted controller holds BUSY high for about 4.4 ms after the software
+    // reset; with no panel, the pull-down keeps BUSY low.
+    int64_t t0 = esp_timer_get_time();
+    while (gpio_get_level(busy_gpio) == 0) {
+        if (esp_timer_get_time() - t0 > PRESENT_WAIT_US) {
+            return ESP_ERR_NOT_FOUND;
+        }
+    }
     return ssd1683_wait(RESET_TIMEOUT_MS);
 }
 
@@ -168,7 +176,8 @@ esp_err_t ssd1683_start(const ssd1683_config_t *cfg)
         gpio_hold_dis(rst_gpio);
         gpio_set_level(rst_gpio, 1);
         gpio_config_t out = {.pin_bit_mask = 1ULL << rst_gpio, .mode = GPIO_MODE_OUTPUT};
-        gpio_config_t in = {.pin_bit_mask = 1ULL << busy_gpio, .mode = GPIO_MODE_INPUT};
+        gpio_config_t in = {.pin_bit_mask = 1ULL << busy_gpio, .mode = GPIO_MODE_INPUT,
+                              .pull_down_en = GPIO_PULLDOWN_ENABLE};  // low with no panel
         ESP_TRY(gpio_config(&out));
         ESP_TRY(gpio_config(&in));
         spi_bus_config_t bus = {
