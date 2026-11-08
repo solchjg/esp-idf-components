@@ -7,6 +7,7 @@
 #include "esp_heap_caps.h"
 #include "esp_lcd_io_spi.h"
 #include "esp_lcd_panel_io.h"
+#include "esp_rom_sys.h"
 #include "esp_try.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -116,10 +117,12 @@ esp_err_t ssd1322_start(const ssd1322_config_t *cfg)
     if (cfg->rst_gpio >= 0) {
         gpio_config_t c = {.pin_bit_mask = 1ULL << cfg->rst_gpio, .mode = GPIO_MODE_OUTPUT};
         ESP_TRY(gpio_config(&c));
+        // An exact 1 ms low, then at least 2 ms before the first command: at a
+        // 100 Hz tick, pdMS_TO_TICKS(1) is 0 and would give no pulse at all.
         gpio_set_level(cfg->rst_gpio, 0);
-        vTaskDelay(pdMS_TO_TICKS(1));
+        esp_rom_delay_us(1000);
         gpio_set_level(cfg->rst_gpio, 1);
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(2) + 1);
     }
     for (int i = 0; i < SSD1322_INIT_STEPS; i++) {
         const ssd1322_step_t *s = &ssd1322_init_steps[i];

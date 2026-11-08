@@ -28,8 +28,10 @@ typedef struct {
 
 // Hardware reset (which ends a deep sleep), software reset and the init
 // sequence; the canvas is cleared to white. Nothing is shown until
-// ssd1683_show. ESP_ERR_TIMEOUT when BUSY does not fall within 1 s. A second
-// start after ssd1683_sleep wakes the same panel again.
+// ssd1683_show. ESP_ERR_NOT_FOUND when BUSY does not rise within 2 ms of the
+// software reset, so no panel is plugged in (BUSY has a pull-down);
+// ESP_ERR_TIMEOUT when it does not fall within 1 s. A second start after
+// ssd1683_sleep wakes the same panel again.
 esp_err_t ssd1683_start(const ssd1683_config_t *cfg);
 
 // The DMA-capable image ssd1683_show sends, width/8 bytes a row, MSB the
@@ -47,7 +49,8 @@ bool ssd1683_busy(void);
 // Waits until a running refresh ends; ESP_ERR_TIMEOUT after timeout_ms.
 esp_err_t ssd1683_wait(uint32_t timeout_ms);
 
-// Waits for a running refresh (up to 6 s), then deep sleep mode 1: the panel
+// Waits for a running refresh (up to 6 s), turns the analog block and the
+// clock off (0x22 0x83, 0x20), then deep sleep mode 1: the panel
 // keeps its image with no power and the controller draws almost none.
 // Holds RST high through the chip's own deep sleep.
 esp_err_t ssd1683_sleep(void);

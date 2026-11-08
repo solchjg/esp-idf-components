@@ -22,6 +22,7 @@ typedef struct {
 #define SSD1683_UPDATE_CTRL1 0x21
 #define SSD1683_UPDATE_CTRL2 0x22
 #define SSD1683_ACTIVATE 0x20
+#define SSD1683_POWER_OFF 0x83    // UPDATE_CTRL2: the analog block and the clock off
 #define SSD1683_DEEP_SLEEP 0x10   // parameter 0x01: mode 1, ended by a hardware reset
 
 // After the software reset: the gate count, the border following white, the
