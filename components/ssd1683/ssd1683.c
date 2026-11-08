@@ -4,6 +4,7 @@
 
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
+#include "esp_rom_sys.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_io_spi.h"
 #include "esp_lcd_panel_io.h"
@@ -15,6 +16,7 @@
 
 #define DONE_TIMEOUT_MS 500   // one RAM write of 15000 bytes takes 30 ms at 4 MHz
 #define RESET_TIMEOUT_MS 1000
+#define RESET_LOW_US 2000
 #define SLEEP_WAIT_MS 6000    // a full refresh takes about 4 s (the task watchdog is 10 s)
 #define SPI_CHUNK 4096
 
@@ -110,8 +112,19 @@ esp_err_t ssd1683_sleep(void)
         return ESP_ERR_INVALID_STATE;
     }
     esp_err_t err = ssd1683_wait(SLEEP_WAIT_MS);
+    // The analog block and the clock off first (a partial refresh leaves them
+    // on), then deep sleep mode 1.
+    const ssd1683_step_t off = {SSD1683_UPDATE_CTRL2, 1, {SSD1683_POWER_OFF}};
+    esp_err_t e = step(&off);
+    if (e == ESP_OK) {
+        e = cmd(SSD1683_ACTIVATE);
+    }
+    if (e == ESP_OK) {
+        e = ssd1683_wait(RESET_TIMEOUT_MS);
+    }
     const ssd1683_step_t s = {SSD1683_DEEP_SLEEP, 1, {0x01}};
-    esp_err_t e = step(&s);
+    esp_err_t e2 = step(&s);
+    e = e != ESP_OK ? e : e2;
     gpio_set_level(rst_gpio, 1);
     gpio_hold_en(rst_gpio);  // a low RST would wake the controller
     return err != ESP_OK ? err : e;
@@ -121,7 +134,9 @@ static esp_err_t reset(void)
 {
     gpio_hold_dis(rst_gpio);
     gpio_set_level(rst_gpio, 0);
-    vTaskDelay(pdMS_TO_TICKS(10) + 1);  // at least 10 ms at any tick rate
+    // An exact 2 ms low: on the Waveshare 4.2" V2 module a low of 10 ms or
+    // more leaves every refresh hanging (BUSY high), while 0.2 to 5 ms works.
+    esp_rom_delay_us(RESET_LOW_US);
     gpio_set_level(rst_gpio, 1);
     vTaskDelay(pdMS_TO_TICKS(10) + 1);  // at least 10 ms at any tick rate
     ESP_TRY(cmd(SSD1683_SW_RESET));
