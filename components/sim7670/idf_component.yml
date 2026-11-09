@@ -1,0 +1,6 @@
+version: "0.1.0"
+description: "SIMCom SIM7670G LTE Cat-1 modem over esp_modem: supply switched by a GPIO, attach with network lock, network time (UTC), GNSS (+CGNSSINFO), PPP, AT+CPOF with the supply cut; a pure core builds the commands and parses the answers, beside sim7080's 3GPP parsers"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"
+  espressif/esp_modem: "^2.1.0"

@@ -1,0 +1,5 @@
+version: "0.1.0"
+description: "Board-agnostic SSD1683 400 x 300 black and white e-paper driver on 4-wire SPI via esp_lcd, full and partial refreshes (needs esp_try)"
+url: https://github.com/solchjg/esp-idf-components
+dependencies:
+  idf: ">=6.0.0"

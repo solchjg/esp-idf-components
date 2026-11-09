@@ -24,6 +24,7 @@
 #define TSIM7080G_S3_RAIL_MODEM_DC3_MV 3000    // modem supply
 #define TSIM7080G_S3_RAIL_SHIFTER_BLDO1_MV 3300  // level shifter, never off
 #define TSIM7080G_S3_RAIL_GPS_BLDO2_MV 3300    // active GPS antenna
+#define TSIM7080G_S3_RAIL_SD_ALDO3_MV 3300     // microSD slot (LilyGO's power table)
 
 // microSD slot, SDMMC 1-bit.
 #define TSIM7080G_S3_SD_CMD 39

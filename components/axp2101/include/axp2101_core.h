@@ -20,6 +20,7 @@
 #define AXP2101_REG_DC_ONOFF 0x80
 #define AXP2101_REG_DC3_VOL 0x84
 #define AXP2101_REG_LDO_ONOFF0 0x90
+#define AXP2101_REG_ALDO3_VOL 0x94
 #define AXP2101_REG_BLDO1_VOL 0x96
 #define AXP2101_REG_BLDO2_VOL 0x97
 
@@ -32,6 +33,7 @@ typedef enum {
     AXP2101_DC3,    // 0.5 – 3.4 V
     AXP2101_BLDO1,  // 0.5 – 3.5 V
     AXP2101_BLDO2,  // 0.5 – 3.5 V
+    AXP2101_ALDO3,  // 0.5 – 3.5 V
 } axp2101_rail_t;
 
 typedef enum {

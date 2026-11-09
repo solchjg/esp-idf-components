@@ -306,12 +306,17 @@ int sim7080_parse_cgnsinf(const char *answer, sim7080_gnss_t *out)
         return SIM7080_E_PARSE;
     }
     out->fix = false;  // GNSS off ("0,,,...") or still seeking ("1,0,...")
+    out->utc = 0;
+    int yy, mo, dd, hh, mi, ss;
     if (run == 1 && sscanf(p + 9, " %d,%d", &run, &fix) == 2 && fix == 1 &&
         sscanf(p + 9, " %d,%d,%23[^,],%lf,%lf", &run, &fix, utc, &lat, &lon) == 5 &&
-        lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        sscanf(utc, "%4d%2d%2d%2d%2d%2d", &yy, &mo, &dd, &hh, &mi, &ss) == 6 && yy >= 2024 &&
+        yy < 2100 && mo >= 1 && mo <= 12 && dd >= 1 && dd <= 31 && hh <= 23 && mi <= 59 &&
+        ss <= 60 && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
         out->fix = true;
         out->lat = lat;
         out->lon = lon;
+        out->utc = days_from_civil(yy, mo, dd) * 86400 + hh * 3600 + mi * 60 + ss;
     }
     return 0;
 }

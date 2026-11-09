@@ -24,16 +24,20 @@ only the ones it needs and wires them together in its own `app_main`.
 | `mail_tx` | one plain-text email over SMTP: TLS on 465, STARTTLS otherwise, CA-bundle verified, AUTH PLAIN or LOGIN | — (needs `MBEDTLS_CERTIFICATE_BUNDLE`, on by default) | — |
 | `ntfy_tx` | one ntfy push notification (self-hosted or ntfy.sh) by HTTP POST: title, priority, tags, click URL, optional Bearer token; HTTPS CA-bundle verified | — (HTTPS needs `MBEDTLS_CERTIFICATE_BUNDLE`, on by default) | — |
 | `notecard` | Blues Notecard on I2C (0x17): Blues' note-c, vendored unchanged (v2.6.2, MIT), over the I2C master driver, joining a bus another driver opened or opening its own; a pure core builds the JSON request lines (`hub.set`, `card.transport`, `note.add`, `card.location.mode`, ...) and reads answer fields (`nc_str`, `nc_num`, `nc_err`, dotted paths) | — | `esp_try` |
-| `axp2101` | AXP2101 PMU on I2C (0x34): DC3 and BLDO1/2 rails, battery voltage and charger state; joins a bus another driver opened on the port or opens its own and releases it at `axp2101_stop`, so a bus can share a controller in turn; a pure core holds the rail codes and the register sequences | — | `esp_try` |
+| `axp2101` | AXP2101 PMU on I2C (0x34): DC3, ALDO3 and BLDO1/2 rails, battery voltage and charger state; joins a bus another driver opened on the port or opens its own and releases it at `axp2101_stop`, so a bus can share a controller in turn; a pure core holds the rail codes and the register sequences | — | `esp_try` |
+| `max17048` | MAX17048 single-cell fuel gauge on I2C (0x36): cell voltage in mV and state of charge in %; joins a bus another driver opened on the port or opens its own; a pure core holds the scales and the read sequence | — | `esp_try` |
+| `sim7670` | SIMCom SIM7670G LTE Cat-1 modem over `esp_modem`, on a board that switches its supply from a GPIO and holds PWRKEY low: supply on and first answer, attach (APN, network lock `AT+COPS`), registration, network time in UTC, GNSS (`AT+CGNSSPWR`, `+CGNSSINFO`), PPP data mode, `AT+CPOF` with the supply cut and held through deep sleep; a pure core builds the commands and parses `+CGMR`, `+CCLK` and `+CGNSSINFO` | — | `sim7080` (its 3GPP parsers), `espressif/esp_modem` (fetched by its manifest); the app's PPP netif |
 | `sim7080` | SIMCom SIM7080G LTE-M modem over `esp_modem`: PWRKEY wake, the full attach (network lock `AT+COPS`, PSM request `AT+CPSMS`), PSM resume, the granted PSM timers, network time, GNSS, PPP data mode; a pure core builds the AT commands and parses `+CEREG`, `+CSQ`, `+CCLK`, `+COPS`, `+CGNSINF` and the firmware revision | — | `espressif/esp_modem` (fetched by its manifest); the app's PPP netif |
 | `flash_ring` | append-only log of fixed-size records in a data partition: reuses its oldest sector when full, skips torn records, resumes a cut-short clear | — | a data partition; NVS for the clear mark |
 | `rv8803` | RV-8803-C7 temperature-compensated real-time clock on I2C (0x32), as on the Adafruit and SparkFun Qwiic breakouts: UTC time with 1/100 s, the lost-time flag, the rate trim; joins a bus another driver opened on the port or opens one for the call; a pure core holds the register conversions and the trim | — | `esp_try` |
 | `bme280` | BME280 temperature, humidity and pressure on I2C, one forced reading per call, configured by `bme280_config_t` | — | `esp_try` |
 | `ads1115` | ADS1115 16-bit ADC on I2C, single-shot conversions and their mean in µV; joins a bus another driver opened on the port, or opens its own | — | `esp_try` |
 | `loop420` | 4-20 mA loop, pure C: current from a shunt voltage, NAMUR NE43 fault limits (3.6 / 21.0 mA), linear scale to a value | — | — |
-| `st7789` | ST7789 panel on an 8-bit i80 bus, configured by `st7789_config_t` | — | `esp_try` |
+| `st7789` | ST7789 panel on an 8-bit i80 bus or 4-wire SPI (joining an SPI bus another device already brought up), configured by `st7789_config_t`; the header names the settings of the T-Display-S3 and the Waveshare 1.9" 170 × 320 module; a pure core holds the colour helpers and the rectangle and band rules | — | `esp_try` |
 | `rm67162` | RM67162 AMOLED panel on a QSPI bus, configured by `rm67162_config_t`; same API shape as `st7789` | — | `esp_try` |
-| `text` | 16 × 32 and 12 × 24 bitmap font renderer, pure C | — | — |
+| `ssd1322` | SSD1322 256 × 64 grey OLED on 4-wire SPI, configured by `ssd1322_config_t`, joining an SPI bus another device already brought up; a pure core holds the init sequence, the column window and the 4-bit packing | — | `esp_try` |
+| `ssd1683` | SSD1683 400 × 300 black and white e-paper on 4-wire SPI, configured by `ssd1683_config_t`, joining an SPI bus another device already brought up; full and partial refreshes that run while the caller goes on, and the controller's deep sleep; a pure core holds the init sequence and the refresh steps | — | `esp_try` |
+| `text` | 16 × 32, 12 × 24, 8 × 16 and 6 × 10 bitmap font renderer, pure C | — | — |
 | `esp_try` | `ESP_TRY`: return an `esp_err_t` instead of aborting | — | — |
 | `tdisplay_s3` | T-Display-S3 pin and panel constants, header only | — | — |
 | `tdisplay_s3_amoled` | T-Display-S3 AMOLED 1.91" pin and panel constants, header only | — | — |
@@ -50,8 +54,8 @@ Set Kconfig options with `idf.py menuconfig` or in the project's
   ESP-IDF headers, so `tests/host/` compiles them with the host `cc`.
 - Every call returns `esp_err_t`; no component retries or aborts
   (no `ESP_ERROR_CHECK`). Policy belongs to the app.
-- `components/text/font16x32.c` and `font12x24.c` are generated by
-  `tools/bdf_to_c.py` (`bdf_to_c.py ter-u24b.bdf 12x24` for the small one); regenerate
+- `components/text/font16x32.c`, `font12x24.c`, `font8x16.c` and `font6x10.c` are
+  generated by `tools/bdf_to_c.py` (its docstring gives each command); regenerate
   them, never hand-edit them.
 
 Comments that cite "FSD §n" or a requirement ID refer to the FSD of the

@@ -4,6 +4,8 @@
 
 const text_font_t text_font_large = {FONT_W, FONT_H, &font16x32[0][0]};
 const text_font_t text_font_small = {FONT_SMALL_W, FONT_SMALL_H, &font12x24[0][0]};
+const text_font_t text_font_mini = {FONT_MINI_W, FONT_MINI_H, &font8x16[0][0]};
+const text_font_t text_font_tiny = {FONT_TINY_W, FONT_TINY_H, &font6x10[0][0]};
 
 int text_font_width(const text_font_t *font, const char *s)
 {
