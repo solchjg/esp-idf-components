@@ -2,4 +2,4 @@ idf_component_register(SRCS "main.c"
                        PRIV_REQUIRES ble_setup wifi_net portal identity status_http ota_rx udp_log
                                      mdns_name button deep_sleep st7789 rm67162 text esp_try tdisplay_s3
                                      tdisplay_s3_amoled time_sync bme280 mail_tx ntfy_tx notecard
-                                     axp2101 sim7080 sim7670 tsim7080g_s3 ssd1322 max17048)
+                                     axp2101 sim7080 sim7670 tsim7080g_s3 ssd1322 max17048 rv8803)

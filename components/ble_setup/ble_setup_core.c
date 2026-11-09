@@ -51,6 +51,15 @@ bs_ctrl_t bs_control(const char *v, size_t len, uint32_t *arg)
         *arg = 6;
         return BS_CTRL_RANGE;
     }
+    if (len > 5 && len <= 5 + 15 && memcmp(v, "time=", 5) == 0) {
+        for (size_t i = 5; i < len; i++) {
+            if (v[i] < '0' || v[i] > '9') {
+                return BS_CTRL_BAD;
+            }
+        }
+        *arg = 5;
+        return BS_CTRL_TIME;
+    }
     bool read = len > 5 && memcmp(v, "read=", 5) == 0;
     bool form = len > 5 && memcmp(v, "form=", 5) == 0;
     if ((read || form || (len > 5 && memcmp(v, "hist=", 5) == 0)) && len <= 5 + 9) {
@@ -65,6 +74,15 @@ bs_ctrl_t bs_control(const char *v, size_t len, uint32_t *arg)
         return read ? BS_CTRL_READ : form ? BS_CTRL_FORM : BS_CTRL_HIST;
     }
     return BS_CTRL_BAD;
+}
+
+int64_t bs_time_ms(const char *v, size_t len)
+{
+    int64_t n = 0;
+    for (size_t i = 5; i < len && v[i] >= '0' && v[i] <= '9'; i++) {
+        n = n * 10 + (v[i] - '0');
+    }
+    return n;
 }
 
 size_t bs_page(const char *all, size_t all_len, uint32_t off, const char **start)

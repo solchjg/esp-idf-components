@@ -29,5 +29,9 @@ void time_sync_stop(void);
 // ts_epoch_valid, the clock then unchanged.
 esp_err_t time_sync_set(int64_t epoch_s);
 
+// The same in milliseconds since 1970 UTC (e.g. a hardware clock that counts
+// 1/100 s, or a phone's clock); the validity check is on the whole second.
+esp_err_t time_sync_set_ms(int64_t epoch_ms);
+
 // True once the clock was synced since the last power-on or reset.
 bool time_sync_synced(void);

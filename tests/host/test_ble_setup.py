@@ -46,6 +46,8 @@ int main(int argc, char **argv)
             if (c == BS_CTRL_FORM) { s.read_off = arg; s.read_form = true; }
             if (c == BS_CTRL_HIST) s.hist_line = arg;
             printf("%d:%u;", (int)c, (unsigned)arg);
+        } else if (a[0] == 'T') {
+            printf("%lld;", (long long)bs_time_ms(a + 2, strlen(a + 2)));
         } else if (a[0] == 'F') {
             printf("%d:%u;", (int)s.read_form, (unsigned)s.read_off);
         } else if (a[0] == 'S') {
@@ -105,9 +107,17 @@ def test_reset_clears_body_read_page_and_history_line(core):
     ("forget", "6:7"), ("forget ", "0:7"), ("Forget", "0:7"),
     ("form=0", "7:0"), ("form=512", "7:512"), ("form=", "0:7"), ("form=x", "0:7"),
     ("Form=0", "0:7"),
+    ("time=1", "8:5"), ("time=1794052115123", "8:5"), ("time=123456789012345", "8:5"),
+    ("time=", "0:7"), ("time=1234567890123456", "0:7"), ("time=-1", "0:7"),
+    ("time=17940521151x3", "0:7"), ("Time=1", "0:7"),
 ])
 def test_control_commands(core, value, expected):
     assert core(16, f"c:{value}") == [expected]
+
+
+def test_time_value(core):
+    assert core(16, "T:time=1794052115123", "T:time=0", "T:time=999999999999999") == \
+        ["1794052115123", "0", "999999999999999"]
 
 
 def test_form_pages_until_read_or_reset(core):
