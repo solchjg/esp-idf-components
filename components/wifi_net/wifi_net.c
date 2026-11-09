@@ -46,7 +46,10 @@ esp_err_t wifi_net_init(wifi_net_event_cb_t cb, const char *hostname)
         return err;
     }
     ESP_TRY(esp_netif_init());
-    ESP_TRY(esp_event_loop_create_default());
+    err = esp_event_loop_create_default();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {  // up already for another netif (PPP)
+        return err;
+    }
     esp_netif_create_default_wifi_ap();
     esp_netif_t *sta = esp_netif_create_default_wifi_sta();
     esp_netif_set_hostname(sta, hostname);  // FR-17.2
