@@ -22,10 +22,12 @@
 #define NVS_NS CONFIG_WIFI_NET_NVS_NAMESPACE
 
 static wifi_net_event_cb_t event_cb;
+static volatile uint16_t last_reason;  // wifi_err_reason_t of the last lost link
 
 static void on_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+        last_reason = ((wifi_event_sta_disconnected_t *)data)->reason;
         event_cb(WIFI_NET_EV_DISCONNECTED, NULL);
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         char ip[16];
@@ -170,4 +172,9 @@ int wifi_net_rssi(void)
 {
     wifi_ap_record_t ap;
     return esp_wifi_sta_get_ap_info(&ap) == ESP_OK ? ap.rssi : 0;
+}
+
+uint16_t wifi_net_last_reason(void)
+{
+    return last_reason;
 }
