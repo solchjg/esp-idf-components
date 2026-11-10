@@ -9,16 +9,20 @@ HARNESS = r"""
 #include <stdlib.h>
 #include "rv8803_core.h"
 
-// argv: to <s>            the seven registers from 0x01 for second s, or "no"
-//       from <16 hex>     the eight registers from 0x00 as epoch ms, or "no"
+// argv: to <s>            the seven registers from 0x11 for second s, or "no"
+//       from <16 hex>     the eight registers from 0x10 as epoch ms, or "no"
 //       off <reg hex>     the offset register as steps
 //       reg <steps>       steps as the offset register
 //       trim <cur> <err_ms> <elapsed_s>
 //       stale <flag hex> <ctrl hex>
+//       map               the register addresses the driver uses
 int main(int argc, char **argv)
 {
     char c = argv[1][0], c2 = argv[1][1];
-    if (c == 't' && c2 == 'o') {
+    if (c == 'm') {
+        printf("%02x %02x %02x %02x %02x", RV8803_REG_100TH, RV8803_REG_SEC, RV8803_REG_FLAG,
+               RV8803_REG_CTRL, RV8803_REG_OFFSET);
+    } else if (c == 't' && c2 == 'o') {
         uint8_t r[7];
         if (!rv8803_regs_from_s(atoll(argv[2]), r)) { printf("no"); return 0; }
         for (int i = 0; i < 7; i++) printf("%02x", r[i]);
@@ -129,3 +133,9 @@ def test_trim_takes_out_the_measured_rate(core, cur, err_ms, elapsed, new):
 ])
 def test_a_frozen_or_lost_time_is_stale(core, flag, ctrl, stale):
     assert core("stale", flag, ctrl) == stale
+
+
+def test_register_map(core):
+    # The extended block 0x10 - 0x17 holds 1/100 s then seconds ... year (the
+    # basic block starts with seconds at 0x00, so 0x00 is not hundredths).
+    assert core("map") == "10 11 0e 0f 2c"

@@ -11,8 +11,10 @@
 
 #define RV8803_ADDR 0x32  // fixed
 
-#define RV8803_REG_100TH 0x00  // 0x00 - 0x07: 1/100 s, s, min, h, weekday, date, month, year
-#define RV8803_REG_SEC 0x01
+// The time in the extended block, 0x10 - 0x17: 1/100 s, s, min, h, weekday,
+// date, month, year. The basic block (seconds at 0x00) has no 1/100 s.
+#define RV8803_REG_100TH 0x10
+#define RV8803_REG_SEC 0x11
 #define RV8803_REG_FLAG 0x0E
 #define RV8803_REG_CTRL 0x0F
 #define RV8803_REG_OFFSET 0x2C
