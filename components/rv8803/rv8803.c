@@ -110,8 +110,11 @@ esp_err_t rv8803_read(const rv8803_config_t *cfg, rv8803_time_t *out)
     }
     link_t l;
     ESP_TRY(link_open(cfg, &l));
-    uint8_t regs[8], flag = 0;
+    uint8_t regs[8], flag = 0, ctrl = 0;
     esp_err_t err = get(&l, RV8803_REG_FLAG, &flag, 1);
+    if (err == ESP_OK) {
+        err = get(&l, RV8803_REG_CTRL, &ctrl, 1);
+    }
     if (err == ESP_OK) {
         err = read_regs(&l, regs);
     }
@@ -120,7 +123,7 @@ esp_err_t rv8803_read(const rv8803_config_t *cfg, rv8803_time_t *out)
         return err;
     }
     *out = (rv8803_time_t){.low = flag & RV8803_FLAG_V1F};
-    out->lost = (flag & RV8803_FLAG_V2F) || !rv8803_regs_to_ms(regs, &out->epoch_ms);
+    out->lost = rv8803_stale(flag, ctrl) || !rv8803_regs_to_ms(regs, &out->epoch_ms);
     return ESP_OK;
 }
 
@@ -141,9 +144,11 @@ esp_err_t rv8803_write(const rv8803_config_t *cfg, int64_t epoch_s)
     if (err == ESP_OK) {
         err = put(&l, RV8803_REG_SEC, regs, sizeof regs);
     }
+    // RESET released whatever happened above: left set, it freezes the time.
+    uint8_t run = ctrl & (uint8_t)~RV8803_CTRL_RESET;
+    esp_err_t rel = put(&l, RV8803_REG_CTRL, &run, 1);
     if (err == ESP_OK) {
-        uint8_t run = ctrl & (uint8_t)~RV8803_CTRL_RESET;
-        err = put(&l, RV8803_REG_CTRL, &run, 1);
+        err = rel;
     }
     if (err == ESP_OK) {
         uint8_t none = 0;

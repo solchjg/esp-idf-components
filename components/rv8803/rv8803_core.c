@@ -122,3 +122,8 @@ int rv8803_trim(int cur_steps, int64_t err_ms, int64_t elapsed_s)
     }
     return (int)next;
 }
+
+bool rv8803_stale(uint8_t flag, uint8_t ctrl)
+{
+    return (flag & RV8803_FLAG_V2F) || (ctrl & RV8803_CTRL_RESET);
+}
