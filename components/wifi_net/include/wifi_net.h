@@ -33,4 +33,7 @@ void wifi_net_sta_stop(void);  // abandons the current attempt
 // *_start turns it on again. ESP_ERR_WIFI_NOT_INIT before wifi_net_init.
 esp_err_t wifi_net_stop(void);
 int wifi_net_rssi(void);       // 0 when not associated
+// The reason (wifi_err_reason_t, e.g. 201 no AP found, 15 handshake timeout)
+// the station gave for its last lost link or failed attempt; 0 before any.
+uint16_t wifi_net_last_reason(void);
 void wifi_net_gateway(char out[16]);  // the station's default gateway, dotted quad
