@@ -14,6 +14,7 @@ HARNESS = r"""
 //       off <reg hex>     the offset register as steps
 //       reg <steps>       steps as the offset register
 //       trim <cur> <err_ms> <elapsed_s>
+//       stale <flag hex> <ctrl hex>
 int main(int argc, char **argv)
 {
     char c = argv[1][0], c2 = argv[1][1];
@@ -31,6 +32,9 @@ int main(int argc, char **argv)
         printf("%d", rv8803_offset_steps((uint8_t)strtol(argv[2], NULL, 16)));
     } else if (c == 'r') {
         printf("%02x", rv8803_offset_reg(atoi(argv[2])));
+    } else if (c == 's') {
+        printf("%d", rv8803_stale((uint8_t)strtol(argv[2], NULL, 16),
+                                  (uint8_t)strtol(argv[3], NULL, 16)));
     } else {
         printf("%d", rv8803_trim(atoi(argv[2]), atoll(argv[3]), atoll(argv[4])));
     }
@@ -114,3 +118,14 @@ def test_steps_to_offset_register(core, steps, reg):
 ])
 def test_trim_takes_out_the_measured_rate(core, cur, err_ms, elapsed, new):
     assert core("trim", cur, err_ms, elapsed) == str(new)
+
+
+@pytest.mark.parametrize("flag,ctrl,stale", [
+    ("00", "00", "0"),  # counting
+    ("01", "00", "0"),  # V1F only: compensation paused, the time still counts
+    ("02", "00", "1"),  # V2F: the backup ran out
+    ("00", "01", "1"),  # RESET held (a supply dip sets it): the time is frozen
+    ("00", "40", "0"),  # other control bits do not matter
+])
+def test_a_frozen_or_lost_time_is_stale(core, flag, ctrl, stale):
+    assert core("stale", flag, ctrl) == stale

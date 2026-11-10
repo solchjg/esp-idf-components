@@ -19,7 +19,8 @@
 
 #define RV8803_FLAG_V1F 0x01  // voltage low: temperature compensation may have stopped
 #define RV8803_FLAG_V2F 0x02  // voltage too low: the time is lost
-#define RV8803_CTRL_RESET 0x01  // holds the divider chain while the time is written
+#define RV8803_CTRL_RESET 0x01  // holds the divider chain: set while the time is written, and
+                                // by the chip itself after a supply dip; the time is frozen until cleared
 
 // 2000-01-01T00:00:00Z and 2100-01-01T00:00:00Z: the chip's calendar.
 #define RV8803_EPOCH_MIN 946684800LL
@@ -34,6 +35,11 @@
 // *epoch_ms the time they hold; false when they hold no valid date (BCD out
 // of range, a day the month does not have).
 bool rv8803_regs_to_ms(const uint8_t regs[8], int64_t *epoch_ms);
+
+// From the flag and control registers: true when the time registers are not
+// to be trusted, because the backup ran out (V2F) or the divider is held
+// (RESET), which freezes the time at the second it stopped.
+bool rv8803_stale(uint8_t flag, uint8_t ctrl);
 
 // The seven registers from RV8803_REG_SEC for whole second s. False, regs
 // untouched, outside the chip's calendar.

@@ -24,7 +24,7 @@ typedef struct {
 
 typedef struct {
     int64_t epoch_ms;  // UTC; valid only when !lost
-    bool lost;         // the time is not to be trusted: V2F set (backup ran out), or no valid date
+    bool lost;         // the time is not to be trusted: V2F (backup ran out), RESET held (frozen), or no valid date
     bool low;          // V1F: the supply dipped, compensation may have paused
 } rv8803_time_t;
 
@@ -33,7 +33,8 @@ typedef struct {
 esp_err_t rv8803_read(const rv8803_config_t *cfg, rv8803_time_t *out);
 
 // Sets whole second epoch_s (call at the start of that second: the divider
-// restarts here) and clears the flags. ESP_ERR_INVALID_ARG outside 2000 – 2099.
+// restarts here), clears the flags and releases RESET, also when a transfer
+// after holding it failed. ESP_ERR_INVALID_ARG outside 2000 – 2099.
 esp_err_t rv8803_write(const rv8803_config_t *cfg, int64_t epoch_s);
 
 // The rate trim in steps of 0.2384 ppm (rv8803_core.h).
