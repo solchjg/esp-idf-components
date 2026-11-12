@@ -54,6 +54,6 @@ uint8_t rv8803_offset_reg(int steps);
 
 // The trim that takes out a measured error: the clock gained err_ms (ahead of
 // the reference; negative when behind) over elapsed_s with trim cur_steps.
-// Returns the new trim, clamped. A positive step speeds the clock up (Micro
-// Crystal application manual, §3.11; checked by the commissioning probe).
+// Returns the new trim, clamped. A positive step slows the clock down
+// (measured by the commissioning probe: +31 steps -6.2 ppm, -32 steps +7.7 ppm).
 int rv8803_trim(int cur_steps, int64_t err_ms, int64_t elapsed_s);
