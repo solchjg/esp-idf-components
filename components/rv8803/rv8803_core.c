@@ -113,7 +113,7 @@ int rv8803_trim(int cur_steps, int64_t err_ms, int64_t elapsed_s)
     int64_t half = RV8803_STEP_PPM_X10000 / 2;
     int64_t steps = (ppm_x10000 >= 0 ? ppm_x10000 + half : ppm_x10000 - half) /
                     RV8803_STEP_PPM_X10000;
-    int64_t next = cur_steps - steps;  // a clock that gained is slowed down
+    int64_t next = cur_steps + steps;  // a clock that gained is slowed down: more steps
     if (next < RV8803_STEP_MIN) {
         next = RV8803_STEP_MIN;
     }

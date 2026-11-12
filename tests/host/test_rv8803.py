@@ -112,12 +112,14 @@ def test_steps_to_offset_register(core, steps, reg):
 
 @pytest.mark.parametrize("cur,err_ms,elapsed,new", [
     (0, 0, 7 * 86400, 0),
-    (0, 1000, 7 * 86400, -7),        # +1.65 ppm fast: slowed by 7 steps (1.67 ppm)
-    (0, -1000, 7 * 86400, 7),
-    (3, 144, 7 * 86400, 2),          # +0.238 ppm: one step
+    # A positive step slows the clock (measured by commissioning/rtc-probe on
+    # the bench, 2026-11-12: +31 steps -6.2 ppm, -32 steps +7.7 ppm).
+    (0, 1000, 7 * 86400, 7),         # +1.65 ppm fast: slowed by 7 steps (1.67 ppm)
+    (0, -1000, 7 * 86400, -7),
+    (3, 144, 7 * 86400, 4),          # +0.238 ppm: one step
     (0, 60, 7 * 86400, 0),           # under half a step: no change
-    (-30, 10000, 86400, -32),        # clamped
-    (30, -10000, 86400, 31),
+    (30, 10000, 86400, 31),          # clamped
+    (-30, -10000, 86400, -32),
     (5, 1000, 0, 5),                 # no time passed: unchanged
 ])
 def test_trim_takes_out_the_measured_rate(core, cur, err_ms, elapsed, new):
