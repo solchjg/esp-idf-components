@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BLE device setup</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#1a5fb4">
 <style>
   :root { --bg:#fafaf9; --fg:#1c1917; --muted:#57534e; --line:#d6d3d1; --accent:#2563eb; --bad:#b91c1c; --good:#15803d; --field:#fff; }
   @media (prefers-color-scheme: dark) { :root { --bg:#1c1917; --fg:#f5f5f4; --muted:#a8a29e; --line:#44403c; --accent:#60a5fa; --bad:#f87171; --good:#4ade80; --field:#292524; } }
@@ -61,6 +64,10 @@
   <div id="status" role="status"></div>
 </main>
 <script>
+// Offline copy (sw.js): once loaded over HTTPS the page opens again with no network.
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 // Protocol (ble_setup.h): every value is a URL-encoded form body. Writes to
 // `settings` append; `control` "apply" acts on them; `result` answers "ok" or
 // "invalid=<field>". Reads of `settings` come in 512-byte pages chosen with
